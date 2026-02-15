@@ -74,6 +74,8 @@ Then verify in Telegram:
 
 - `/help`
 - `/lc`
+- `/done`
+- `/delete <slug>`
 - `/skip`
 - `/exit`
 - `/daily_status`

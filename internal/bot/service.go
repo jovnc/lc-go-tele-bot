@@ -13,6 +13,8 @@ import (
 	"telegram-leetcode-bot/internal/telegram"
 )
 
+const correctAnswerScoreThreshold = 8
+
 type Service struct {
 	logger         *log.Logger
 	tgClient       TelegramSender
@@ -187,13 +189,18 @@ func (s *Service) handleFreeTextAnswer(ctx context.Context, chatID int64, answer
 		guidance = fallbackGuidance(*settings.CurrentQuestion, answer)
 	}
 
-	reply := formatEvaluationMarkdown(*settings.CurrentQuestion, clampScore(review.Score), source, feedback, guidance)
-	if err := s.tgClient.SendMarkdownMessage(ctx, chatID, reply); err != nil {
-		return err
+	score := clampScore(review.Score)
+	status := "Not saved yet. Improve your approach and send another attempt, or use /done when you finish."
+	if score >= correctAnswerScoreThreshold {
+		if err := s.persistCompletedQuestion(ctx, chatID, *settings.CurrentQuestion); err != nil {
+			return err
+		}
+		status = "Correct. Saved to your seen/revision history."
 	}
 
-	if err := s.store.MarkQuestionAnswered(ctx, chatID, *settings.CurrentQuestion); err != nil {
-		s.logger.Printf("mark question answered failed for chat %d: %v", chatID, err)
+	reply := formatEvaluationMarkdown(*settings.CurrentQuestion, score, source, feedback, guidance, status)
+	if err := s.tgClient.SendMarkdownMessage(ctx, chatID, reply); err != nil {
+		return err
 	}
 
 	return nil
@@ -205,15 +212,8 @@ func (s *Service) sendUniqueQuestion(ctx context.Context, chatID int64, intro st
 		return err
 	}
 
-	effectiveSeen := make(map[string]struct{}, len(seen)+len(transientExclude))
-	for slug := range seen {
-		effectiveSeen[slug] = struct{}{}
-	}
-	for _, slug := range transientExclude {
-		if slug = strings.TrimSpace(slug); slug != "" {
-			effectiveSeen[slug] = struct{}{}
-		}
-	}
+	excludeSet := toSlugSet(transientExclude)
+	effectiveSeen := mergeSlugSets(seen, excludeSet)
 
 	q, err := s.questions.RandomQuestion(ctx, effectiveSeen)
 	note := ""
@@ -221,8 +221,8 @@ func (s *Service) sendUniqueQuestion(ctx context.Context, chatID int64, intro st
 		if err := s.store.ResetServedQuestions(ctx, chatID); err != nil {
 			return err
 		}
-		q, err = s.questions.RandomQuestion(ctx, effectiveSeenWithoutPersisted(transientExclude))
-		if errors.Is(err, ErrNoUnseenQuestions) && len(transientExclude) > 0 {
+		q, err = s.questions.RandomQuestion(ctx, excludeSet)
+		if errors.Is(err, ErrNoUnseenQuestions) && len(excludeSet) > 0 {
 			q, err = s.questions.RandomQuestion(ctx, map[string]struct{}{})
 		}
 		note = "Question history exhausted and reset to allow new picks.\n\n"
@@ -231,9 +231,6 @@ func (s *Service) sendUniqueQuestion(ctx context.Context, chatID int64, intro st
 		return err
 	}
 
-	if err := s.store.AddServedQuestion(ctx, chatID, q); err != nil {
-		return err
-	}
 	if err := s.store.SetCurrentQuestion(ctx, chatID, q); err != nil {
 		return err
 	}
@@ -246,6 +243,19 @@ func (s *Service) sendUniqueQuestion(ctx context.Context, chatID int64, intro st
 
 	msg := formatQuestionMarkdown(intro, note, q, prompt)
 	return s.tgClient.SendMarkdownMessage(ctx, chatID, msg)
+}
+
+func (s *Service) persistCompletedQuestion(ctx context.Context, chatID int64, q Question) error {
+	if err := s.store.AddServedQuestion(ctx, chatID, q); err != nil {
+		return err
+	}
+	if err := s.store.MarkQuestionAnswered(ctx, chatID, q); err != nil {
+		return err
+	}
+	if err := s.store.ClearCurrentQuestion(ctx, chatID); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (s *Service) reviewAnswer(ctx context.Context, q Question, answer string) (AnswerReview, bool) {
@@ -329,14 +339,25 @@ func normalizeTelegramUsername(raw string) string {
 	return strings.TrimPrefix(out, "@")
 }
 
-func effectiveSeenWithoutPersisted(transientExclude []string) map[string]struct{} {
-	out := make(map[string]struct{}, len(transientExclude))
-	for _, slug := range transientExclude {
+func toSlugSet(slugs []string) map[string]struct{} {
+	out := make(map[string]struct{}, len(slugs))
+	for _, slug := range slugs {
 		if slug = strings.TrimSpace(slug); slug != "" {
 			out[slug] = struct{}{}
 		}
 	}
 	return out
+}
+
+func mergeSlugSets(base map[string]struct{}, extra map[string]struct{}) map[string]struct{} {
+	merged := make(map[string]struct{}, len(base)+len(extra))
+	for slug := range base {
+		merged[slug] = struct{}{}
+	}
+	for slug := range extra {
+		merged[slug] = struct{}{}
+	}
+	return merged
 }
 
 func (s *Service) resolveLocation(name string) *time.Location {

@@ -97,10 +97,11 @@ Subcollections:
 2. Bot parses command or free text.
 3. For `/lc`, bot chooses unseen question, stores it as `current_question`, fetches statement content via LeetCode GraphQL, and sends it in Telegram Markdown.
 4. For answer text, bot evaluates using AI when available, otherwise heuristic fallback.
-5. Bot records answered metadata (`attempts`, timestamps).
-6. `/skip` replaces current question and removes skipped slug from seen history.
-7. `/exit` clears `current_question` to end active practice mode.
-8. `/answered` lists answered history; `/revise` reloads a previous question into `current_question`.
+5. Bot records answered metadata (`attempts`, timestamps) only when answer is correct (score >= 8) or user sends `/done`.
+6. `/skip` replaces current question and does not save it.
+7. `/exit` clears `current_question` to end active practice mode without saving it.
+8. `/delete <slug>` removes a question from answered history and seen history.
+9. `/answered` lists answered history; `/revise` reloads a previous question into `current_question`.
 
 ## Daily Scheduling Flow
 

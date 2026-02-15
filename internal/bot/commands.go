@@ -22,11 +22,15 @@ func (s *Service) handleCommand(ctx context.Context, chatID int64, text string) 
 	case "/start", "/help":
 		return s.tgClient.SendMessage(ctx, chatID, helpText())
 	case "/lc":
-		return s.sendUniqueQuestion(ctx, chatID, "Here is your random LeetCode question:")
+		return s.cmdLC(ctx, chatID)
+	case "/done":
+		return s.cmdDone(ctx, chatID)
 	case "/skip":
 		return s.cmdSkip(ctx, chatID)
 	case "/exit":
 		return s.cmdExit(ctx, chatID)
+	case "/delete", "/unrevise":
+		return s.cmdDeleteRevisedQuestion(ctx, chatID, args)
 	case "/answered", "/history":
 		return s.cmdAnsweredHistory(ctx, chatID, args)
 	case "/revise":
@@ -44,6 +48,33 @@ func (s *Service) handleCommand(ctx context.Context, chatID int64, text string) 
 	}
 }
 
+func (s *Service) cmdLC(ctx context.Context, chatID int64) error {
+	settings, err := s.store.GetChatSettings(ctx, chatID)
+	if err != nil {
+		return err
+	}
+	if settings.CurrentQuestion != nil {
+		return s.sendUniqueQuestion(ctx, chatID, "Here is your random LeetCode question:", settings.CurrentQuestion.Slug)
+	}
+	return s.sendUniqueQuestion(ctx, chatID, "Here is your random LeetCode question:")
+}
+
+func (s *Service) cmdDone(ctx context.Context, chatID int64) error {
+	settings, err := s.store.GetChatSettings(ctx, chatID)
+	if err != nil {
+		return err
+	}
+	if settings.CurrentQuestion == nil {
+		return s.tgClient.SendMessage(ctx, chatID, "No active question. Use /lc first.")
+	}
+
+	if err := s.persistCompletedQuestion(ctx, chatID, *settings.CurrentQuestion); err != nil {
+		return err
+	}
+
+	return s.tgClient.SendMessage(ctx, chatID, "Marked as done and saved to your seen/revision history. Send /lc for another question.")
+}
+
 func (s *Service) cmdSkip(ctx context.Context, chatID int64) error {
 	settings, err := s.store.GetChatSettings(ctx, chatID)
 	if err != nil {
@@ -51,12 +82,6 @@ func (s *Service) cmdSkip(ctx context.Context, chatID int64) error {
 	}
 	if settings.CurrentQuestion == nil {
 		return s.tgClient.SendMessage(ctx, chatID, "No active question to skip. Use /lc first.")
-	}
-
-	if settings.CurrentQuestion.Slug != "" {
-		if err := s.store.RemoveServedQuestion(ctx, chatID, settings.CurrentQuestion.Slug); err != nil {
-			return err
-		}
 	}
 
 	return s.sendUniqueQuestion(ctx, chatID, "Skipped. Here is another LeetCode question:", settings.CurrentQuestion.Slug)
@@ -78,6 +103,39 @@ func (s *Service) cmdExit(ctx context.Context, chatID int64) error {
 	return s.tgClient.SendMessage(ctx, chatID, "Exited practice mode. Send /lc when you want another question.")
 }
 
+func (s *Service) cmdDeleteRevisedQuestion(ctx context.Context, chatID int64, args []string) error {
+	if len(args) == 0 {
+		return s.tgClient.SendMessage(ctx, chatID, "Usage: /delete <slug>, e.g. /delete two-sum")
+	}
+
+	slug := normalizeSlug(args[0])
+	if slug == "" {
+		return s.tgClient.SendMessage(ctx, chatID, "Usage: /delete <slug>, e.g. /delete two-sum")
+	}
+
+	if err := s.store.DeleteAnsweredQuestion(ctx, chatID, slug); err != nil {
+		if errors.Is(err, ErrAnsweredQuestionNotFound) {
+			return s.tgClient.SendMessage(ctx, chatID, "I couldn't find that slug in your revised list. Use /answered to see available slugs.")
+		}
+		return err
+	}
+	if err := s.store.RemoveServedQuestion(ctx, chatID, slug); err != nil {
+		return err
+	}
+
+	settings, err := s.store.GetChatSettings(ctx, chatID)
+	if err != nil {
+		return err
+	}
+	if settings.CurrentQuestion != nil && settings.CurrentQuestion.Slug == slug {
+		if err := s.store.ClearCurrentQuestion(ctx, chatID); err != nil {
+			return err
+		}
+	}
+
+	return s.tgClient.SendMessage(ctx, chatID, fmt.Sprintf("Deleted %q from revised history and seen set.", slug))
+}
+
 func (s *Service) cmdAnsweredHistory(ctx context.Context, chatID int64, args []string) error {
 	limit := 10
 	if len(args) > 0 {
@@ -93,7 +151,7 @@ func (s *Service) cmdAnsweredHistory(ctx context.Context, chatID int64, args []s
 		return err
 	}
 	if len(items) == 0 {
-		return s.tgClient.SendMessage(ctx, chatID, "No answered questions yet. Use /lc and submit an attempt first.")
+		return s.tgClient.SendMessage(ctx, chatID, "No answered questions yet. Use /lc and either solve correctly or /done.")
 	}
 
 	lines := make([]string, 0, len(items)+2)
@@ -135,7 +193,7 @@ func (s *Service) cmdRevise(ctx context.Context, chatID int64, args []string) er
 			return listErr
 		}
 		if len(items) == 0 {
-			return s.tgClient.SendMessage(ctx, chatID, "No answered questions to revise yet. Solve one first with /lc.")
+			return s.tgClient.SendMessage(ctx, chatID, "No answered questions to revise yet. Complete one first with /lc and /done (or a correct attempt).")
 		}
 		idx := int(s.nowFn().UnixNano() % int64(len(items)))
 		if idx < 0 {
@@ -297,9 +355,11 @@ func tzLabel(tz string) string {
 
 func helpText() string {
 	return strings.TrimSpace(`Commands:
-/lc - Get a random LeetCode question (non-repeating until exhaustion)
+/lc - Get a random LeetCode question
+/done - Mark current question complete and save it to seen/revision history
 /skip - Skip the current question without adding it to seen history
 /exit - Exit active /lc practice mode
+/delete <slug> - Remove a question from revised history and seen set
 /answered [limit] - List previously answered questions
 /history [limit] - Alias of /answered
 /revise [slug] - Revisit an answered question (random if slug omitted)
@@ -308,5 +368,5 @@ func helpText() string {
 /daily_time HH:MM - Set daily time in SGT and enable
 /daily_status - Show current daily schedule
 
-After /lc, send your solution idea in words/pseudocode and I will grade it with AI (fallback: heuristic).`)
+After /lc, send your solution idea in words/pseudocode and I will evaluate it with AI (fallback: heuristic).`)
 }

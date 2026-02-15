@@ -91,6 +91,16 @@ func (s *firestoreStateStore) MarkQuestionAnswered(ctx context.Context, chatID i
 	return s.store.MarkQuestionAnswered(ctx, chatID, mapQuestionOut(q))
 }
 
+func (s *firestoreStateStore) DeleteAnsweredQuestion(ctx context.Context, chatID int64, slug string) error {
+	if err := s.store.DeleteAnsweredQuestion(ctx, chatID, slug); err != nil {
+		if errors.Is(err, storage.ErrAnsweredQuestionNotFound) {
+			return bot.ErrAnsweredQuestionNotFound
+		}
+		return err
+	}
+	return nil
+}
+
 func (s *firestoreStateStore) AddServedQuestion(ctx context.Context, chatID int64, q bot.Question) error {
 	return s.store.AddServedQuestion(ctx, chatID, mapQuestionOut(q))
 }

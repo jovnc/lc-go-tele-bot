@@ -14,11 +14,15 @@ import (
 )
 
 type fakeTelegramClient struct {
-	messages map[int64][]string
+	messages      map[int64][]string
+	markdownCount map[int64]int
 }
 
 func newFakeTelegramClient() *fakeTelegramClient {
-	return &fakeTelegramClient{messages: make(map[int64][]string)}
+	return &fakeTelegramClient{
+		messages:      make(map[int64][]string),
+		markdownCount: make(map[int64]int),
+	}
 }
 
 func (f *fakeTelegramClient) SendMessage(_ context.Context, chatID int64, text string) error {
@@ -28,6 +32,7 @@ func (f *fakeTelegramClient) SendMessage(_ context.Context, chatID int64, text s
 
 func (f *fakeTelegramClient) SendMarkdownMessage(_ context.Context, chatID int64, text string) error {
 	f.messages[chatID] = append(f.messages[chatID], text)
+	f.markdownCount[chatID]++
 	return nil
 }
 
@@ -153,6 +158,14 @@ func (m *memoryStore) MarkQuestionAnswered(_ context.Context, chatID int64, q Qu
 	return nil
 }
 
+func (m *memoryStore) DeleteAnsweredQuestion(_ context.Context, chatID int64, slug string) error {
+	if _, ok := m.answered[chatID][slug]; !ok {
+		return ErrAnsweredQuestionNotFound
+	}
+	delete(m.answered[chatID], slug)
+	return nil
+}
+
 func (m *memoryStore) AddServedQuestion(_ context.Context, chatID int64, q Question) error {
 	if _, ok := m.served[chatID]; !ok {
 		m.served[chatID] = make(map[string]Question)
@@ -267,6 +280,9 @@ func TestWebhookLCUniquenessAndGrading(t *testing.T) {
 	if !strings.Contains(messages[2], "Source: Heuristic") {
 		t.Fatalf("expected heuristic fallback, got: %s", messages[2])
 	}
+	if !strings.Contains(messages[2], "Not saved yet") {
+		t.Fatalf("expected not-saved status for non-correct attempt, got: %s", messages[2])
+	}
 
 	settings, _ := store.GetChatSettings(context.Background(), chatID)
 	if settings.CurrentQuestion == nil || settings.CurrentQuestion.Title != "Merge Intervals" {
@@ -274,8 +290,17 @@ func TestWebhookLCUniquenessAndGrading(t *testing.T) {
 	}
 
 	answered, _ := store.ListAnsweredQuestions(context.Background(), chatID, 10)
-	if len(answered) == 0 || answered[0].Slug != "merge-intervals" {
-		t.Fatalf("expected answered history to include merge-intervals")
+	if len(answered) != 0 {
+		t.Fatalf("expected unanswered attempt to stay out of revised history")
+	}
+
+	seen, _ := store.SeenQuestionSet(context.Background(), chatID)
+	if len(seen) != 0 {
+		t.Fatalf("expected unanswered attempt to stay out of seen history")
+	}
+
+	if tg.markdownCount[chatID] != 3 {
+		t.Fatalf("expected all /lc + evaluation responses to use markdown; markdownCount=%d", tg.markdownCount[chatID])
 	}
 }
 
@@ -321,6 +346,22 @@ func TestGradingUsesCoachWhenConfigured(t *testing.T) {
 	if !strings.Contains(messages[1], "invariant") {
 		t.Fatalf("AI guidance missing from grade response: %s", messages[1])
 	}
+	if !strings.Contains(messages[1], "Correct\\. Saved") {
+		t.Fatalf("expected correct status in evaluation output, got: %s", messages[1])
+	}
+
+	settings, _ := store.GetChatSettings(context.Background(), chatID)
+	if settings.CurrentQuestion != nil {
+		t.Fatalf("expected correct answer to clear current question")
+	}
+	answered, _ := store.ListAnsweredQuestions(context.Background(), chatID, 10)
+	if len(answered) != 1 || answered[0].Slug != "two-sum" {
+		t.Fatalf("expected correct answer to save question in revised history")
+	}
+	seen, _ := store.SeenQuestionSet(context.Background(), chatID)
+	if len(seen) != 1 {
+		t.Fatalf("expected correct answer to save question in seen history")
+	}
 }
 
 func TestHistoryAndReviseCommands(t *testing.T) {
@@ -347,7 +388,7 @@ func TestHistoryAndReviseCommands(t *testing.T) {
 	chatID := int64(88)
 
 	callWebhook(t, svc, "/webhook/webhook-secret", webhookPayload{Message: webhookMessage{Chat: webhookChat{ID: chatID}, Text: "/lc"}})
-	callWebhook(t, svc, "/webhook/webhook-secret", webhookPayload{Message: webhookMessage{Chat: webhookChat{ID: chatID}, Text: "Try map lookup with complement."}})
+	callWebhook(t, svc, "/webhook/webhook-secret", webhookPayload{Message: webhookMessage{Chat: webhookChat{ID: chatID}, Text: "/done"}})
 	callWebhook(t, svc, "/webhook/webhook-secret", webhookPayload{Message: webhookMessage{Chat: webhookChat{ID: chatID}, Text: "/answered"}})
 	callWebhook(t, svc, "/webhook/webhook-secret", webhookPayload{Message: webhookMessage{Chat: webhookChat{ID: chatID}, Text: "/revise two-sum"}})
 
@@ -392,11 +433,8 @@ func TestSkipDoesNotPersistSeenQuestion(t *testing.T) {
 	if err != nil {
 		t.Fatalf("load seen set: %v", err)
 	}
-	if _, exists := seenAfterSkip["two-sum"]; exists {
-		t.Fatalf("expected skipped question to be removed from seen set")
-	}
-	if _, exists := seenAfterSkip["merge-intervals"]; !exists {
-		t.Fatalf("expected replacement question to be stored as seen")
+	if len(seenAfterSkip) != 0 {
+		t.Fatalf("expected skipped question flow to keep seen set empty until /done or correct answer")
 	}
 
 	callWebhook(t, svc, "/webhook/webhook-secret", webhookPayload{Message: webhookMessage{Chat: webhookChat{ID: chatID}, Text: "/lc"}})
@@ -455,6 +493,100 @@ func TestExitClearsActivePracticeMode(t *testing.T) {
 	}
 	if !strings.Contains(messages[2], "No active question. Use /lc first.") {
 		t.Fatalf("expected no-active-question response after exit, got: %s", messages[2])
+	}
+
+	seen, _ := store.SeenQuestionSet(context.Background(), chatID)
+	if len(seen) != 0 {
+		t.Fatalf("expected /exit flow not to persist question in seen history")
+	}
+	answered, _ := store.ListAnsweredQuestions(context.Background(), chatID, 10)
+	if len(answered) != 0 {
+		t.Fatalf("expected /exit flow not to persist question in revised history")
+	}
+}
+
+func TestDoneSavesQuestionAndClearsCurrent(t *testing.T) {
+	tg := newFakeTelegramClient()
+	store := newMemoryStore()
+	provider := &fakeQuestionProvider{questions: []Question{
+		{Slug: "two-sum", Title: "Two Sum", Difficulty: "Easy", URL: "https://leetcode.com/problems/two-sum/"},
+	}}
+
+	svc := NewService(
+		log.New(bytes.NewBuffer(nil), "", 0),
+		tg,
+		provider,
+		nil,
+		store,
+		"webhook-secret",
+		"cron-secret",
+		"20:00",
+		"Asia/Singapore",
+		nil,
+	)
+
+	chatID := int64(123)
+	callWebhook(t, svc, "/webhook/webhook-secret", webhookPayload{Message: webhookMessage{Chat: webhookChat{ID: chatID}, Text: "/lc"}})
+	callWebhook(t, svc, "/webhook/webhook-secret", webhookPayload{Message: webhookMessage{Chat: webhookChat{ID: chatID}, Text: "/done"}})
+
+	settings, _ := store.GetChatSettings(context.Background(), chatID)
+	if settings.CurrentQuestion != nil {
+		t.Fatalf("expected /done to clear current question")
+	}
+	answered, _ := store.ListAnsweredQuestions(context.Background(), chatID, 10)
+	if len(answered) != 1 || answered[0].Slug != "two-sum" {
+		t.Fatalf("expected /done to save question in revised history")
+	}
+	seen, _ := store.SeenQuestionSet(context.Background(), chatID)
+	if len(seen) != 1 {
+		t.Fatalf("expected /done to save question in seen history")
+	}
+}
+
+func TestDeleteRemovesQuestionFromRevisedAndSeen(t *testing.T) {
+	tg := newFakeTelegramClient()
+	store := newMemoryStore()
+	provider := &fakeQuestionProvider{questions: []Question{
+		{Slug: "two-sum", Title: "Two Sum", Difficulty: "Easy", URL: "https://leetcode.com/problems/two-sum/"},
+	}}
+
+	svc := NewService(
+		log.New(bytes.NewBuffer(nil), "", 0),
+		tg,
+		provider,
+		nil,
+		store,
+		"webhook-secret",
+		"cron-secret",
+		"20:00",
+		"Asia/Singapore",
+		nil,
+	)
+
+	chatID := int64(124)
+	callWebhook(t, svc, "/webhook/webhook-secret", webhookPayload{Message: webhookMessage{Chat: webhookChat{ID: chatID}, Text: "/lc"}})
+	callWebhook(t, svc, "/webhook/webhook-secret", webhookPayload{Message: webhookMessage{Chat: webhookChat{ID: chatID}, Text: "/done"}})
+	callWebhook(t, svc, "/webhook/webhook-secret", webhookPayload{Message: webhookMessage{Chat: webhookChat{ID: chatID}, Text: "/delete two-sum"}})
+	callWebhook(t, svc, "/webhook/webhook-secret", webhookPayload{Message: webhookMessage{Chat: webhookChat{ID: chatID}, Text: "/answered"}})
+
+	seen, _ := store.SeenQuestionSet(context.Background(), chatID)
+	if len(seen) != 0 {
+		t.Fatalf("expected /delete to remove question from seen history")
+	}
+	answered, _ := store.ListAnsweredQuestions(context.Background(), chatID, 10)
+	if len(answered) != 0 {
+		t.Fatalf("expected /delete to remove question from revised history")
+	}
+
+	messages := tg.messages[chatID]
+	if len(messages) != 4 {
+		t.Fatalf("expected 4 outgoing messages, got %d", len(messages))
+	}
+	if !strings.Contains(messages[2], `Deleted "two-sum"`) {
+		t.Fatalf("unexpected delete response: %s", messages[2])
+	}
+	if !strings.Contains(messages[3], "No answered questions yet") {
+		t.Fatalf("expected empty /answered after delete, got: %s", messages[3])
 	}
 }
 

@@ -8,6 +8,8 @@ A Telegram bot that delivers LeetCode practice with daily scheduling, AI-assiste
 - Fetches and sends full question statement in Telegram Markdown
 - AI evaluation for every attempt after `/lc` with heuristic fallback
 - Practice controls (`/skip`, `/exit`) for active question mode
+- Completion controls: auto-save on correct evaluation or manual `/done`
+- Revision cleanup command (`/delete <slug>`)
 - Daily question scheduling in SGT (`/daily_on`, `/daily_time`, `/daily_off`, `/daily_status`)
 - Answer history and revision workflow (`/answered`, `/history`, `/revise`)
 - Username allow-list gating via env (`ALLOWED_TELEGRAM_USERNAMES`)
@@ -16,8 +18,10 @@ A Telegram bot that delivers LeetCode practice with daily scheduling, AI-assiste
 ## Commands
 
 - `/lc` get a random question
+- `/done` mark active question complete and save it
 - `/skip` skip active question (does not keep skipped question in seen set)
 - `/exit` leave active `/lc` practice mode
+- `/delete <slug>` remove a question from revised history
 - `/answered [limit]` list answered questions
 - `/history [limit]` alias of `/answered`
 - `/revise [slug]` revisit an answered question
@@ -27,7 +31,8 @@ A Telegram bot that delivers LeetCode practice with daily scheduling, AI-assiste
 - `/daily_status` show daily schedule
 - `/help` list commands
 
-After `/lc`, send your approach in plain text and the bot evaluates it (AI-first, heuristic fallback).
+After `/lc`, send your approach in plain text and the bot evaluates it (AI-first, heuristic fallback).  
+The question is saved only when evaluation is correct (score >= 8) or when you use `/done`.
 
 ## Local Development
 

@@ -141,8 +141,10 @@ curl "<CLOUD_RUN_URL>/healthz"
 - Send `/help`
 - Send `/lc`
 - Submit an answer and confirm grade response
+- Send `/done` and verify it appears in `/answered`
 - Send `/skip` and confirm a different question is sent
 - Send `/exit` and confirm free text is no longer graded
+- Send `/delete <slug>` and confirm it is removed from `/answered`
 - Send `/answered`
 - Send `/revise`
 

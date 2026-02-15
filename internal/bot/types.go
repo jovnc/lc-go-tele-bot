@@ -60,6 +60,7 @@ type StateStore interface {
 	ClearCurrentQuestion(ctx context.Context, chatID int64) error
 	MarkDailySent(ctx context.Context, chatID int64, day string) error
 	MarkQuestionAnswered(ctx context.Context, chatID int64, q Question) error
+	DeleteAnsweredQuestion(ctx context.Context, chatID int64, slug string) error
 	AddServedQuestion(ctx context.Context, chatID int64, q Question) error
 	RemoveServedQuestion(ctx context.Context, chatID int64, slug string) error
 	SeenQuestionSet(ctx context.Context, chatID int64) (map[string]struct{}, error)

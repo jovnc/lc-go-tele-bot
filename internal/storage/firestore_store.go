@@ -245,6 +245,21 @@ func (s *Store) GetAnsweredQuestion(ctx context.Context, chatID int64, slug stri
 	return q, nil
 }
 
+func (s *Store) DeleteAnsweredQuestion(ctx context.Context, chatID int64, slug string) error {
+	ref := s.chatDoc(chatID).Collection(answeredSubcollName).Doc(slug)
+	if _, err := ref.Get(ctx); err != nil {
+		if status.Code(err) == codes.NotFound {
+			return ErrAnsweredQuestionNotFound
+		}
+		return fmt.Errorf("get answered question before delete: %w", err)
+	}
+
+	if _, err := ref.Delete(ctx); err != nil {
+		return fmt.Errorf("delete answered question: %w", err)
+	}
+	return nil
+}
+
 func (s *Store) AddServedQuestion(ctx context.Context, chatID int64, q QuestionRef) error {
 	_, err := s.chatDoc(chatID).Collection(servedSubcollName).Doc(q.Slug).Set(ctx, map[string]any{
 		"slug":       q.Slug,

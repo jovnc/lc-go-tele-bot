@@ -64,9 +64,10 @@ func formatQuestionMarkdown(intro, note string, q Question, prompt string) strin
 	return strings.Join(lines, "\n")
 }
 
-func formatEvaluationMarkdown(q Question, score int, source, feedback, guidance string) string {
+func formatEvaluationMarkdown(q Question, score int, source, feedback, guidance, status string) string {
 	feedback = truncateRunes(strings.TrimSpace(feedback), maxFeedbackRunes)
 	guidance = truncateRunes(strings.TrimSpace(guidance), maxGuidanceRunes)
+	status = strings.TrimSpace(status)
 
 	lines := []string{
 		fmt.Sprintf("*Evaluation for %s* \\(%s\\)", escapeMarkdownV2(q.Title), escapeMarkdownV2(q.Difficulty)),
@@ -80,6 +81,10 @@ func formatEvaluationMarkdown(q Question, score int, source, feedback, guidance 
 		"*Guided Next Steps*",
 		"",
 		escapeMarkdownV2(guidance),
+		"",
+		"*Status*",
+		"",
+		escapeMarkdownV2(status),
 		"",
 		"Send another attempt, /skip for another question, /exit to leave practice mode, or /lc for a new random question\\.",
 	}
