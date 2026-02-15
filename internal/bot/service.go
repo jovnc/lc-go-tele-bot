@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"telegram-leetcode-bot/internal/bot/commands"
 	"telegram-leetcode-bot/internal/telegram"
 )
 
@@ -21,6 +22,7 @@ type Service struct {
 	questions      QuestionProvider
 	coach          Coach
 	store          StateStore
+	commandHandler *commands.Handler
 	allowedUsers   map[string]struct{}
 	webhookSecret  string
 	cronSecret     string
@@ -47,7 +49,7 @@ func NewService(
 		loc = time.FixedZone("UTC+8", 8*3600)
 	}
 
-	return &Service{
+	svc := &Service{
 		logger:         logger,
 		tgClient:       tgClient,
 		questions:      questions,
@@ -61,6 +63,8 @@ func NewService(
 		defaultLoc:     loc,
 		nowFn:          time.Now,
 	}
+	svc.commandHandler = newCommandHandler(svc)
+	return svc
 }
 
 func (s *Service) WebhookHandler(w http.ResponseWriter, r *http.Request) {

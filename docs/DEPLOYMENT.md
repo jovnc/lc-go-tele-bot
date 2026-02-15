@@ -74,7 +74,7 @@ Edit `terraform.tfvars` and set at least:
 
 Example image format:
 
-`<region>-docker.pkg.dev/<project_id>/<artifact_repo_name>/<service_name>:v1`
+`<region>-docker.pkg.dev/<project_id>/<artifact_repo_name>/<service_name>:latest`
 
 ## Step 3: Initialize Terraform and create bootstrap infra
 
@@ -91,10 +91,10 @@ Run from repository root:
 
 ```bash
 PROJECT_ID="<PROJECT_ID>"
-REGION="us-central1"
+REGION="asia-southeast1"
 REPO="leetcode-bot"
 SERVICE="leetcode-telegram-bot"
-TAG="v1"
+TAG="latest"
 IMAGE="${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO}/${SERVICE}:${TAG}"
 
 gcloud auth configure-docker "${REGION}-docker.pkg.dev"
@@ -103,6 +103,7 @@ docker push "$IMAGE"
 ```
 
 Update `terraform/terraform.tfvars` so `container_image` matches the pushed image.
+If you use `make cloud-update PROJECT_ID=<PROJECT_ID>`, this is updated automatically.
 
 ## Step 5: Deploy full stack
 
@@ -161,20 +162,10 @@ curl -X POST "<CLOUD_RUN_URL>/cron/daily" -H "X-Cron-Secret: <CRON_SECRET>"
 
 For repeat deployments, use the dedicated runbook: `docs/UPDATE_RUNBOOK.md`.
 
-1. Build and push a new image tag.
+1. Run the update workflow from repo root (pushes `latest`, updates `container_image`, then applies Terraform).
 
 ```bash
-TAG="v2"
-IMAGE="${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO}/${SERVICE}:${TAG}"
-docker build -t "$IMAGE" .
-docker push "$IMAGE"
-```
-
-2. Update `container_image` in `terraform.tfvars` and apply.
-
-```bash
-cd terraform
-terraform apply
+make cloud-update PROJECT_ID="<PROJECT_ID>"
 ```
 
 ## Step 9: Rotate secrets

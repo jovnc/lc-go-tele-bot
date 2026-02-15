@@ -1,10 +1,10 @@
 project_id         = "your-gcp-project-id"
-region             = "us-central1"
+region             = "asia-southeast1"
 service_name       = "leetcode-telegram-bot"
 artifact_repo_name = "leetcode-bot"
 
-# Update this after first image build and push (deploy script default tag: v1).
-container_image = "us-central1-docker.pkg.dev/your-gcp-project-id/leetcode-bot/leetcode-telegram-bot:v1"
+# Keep this on latest; Makefile cloud-update rewrites this value automatically before apply.
+container_image = "asia-southeast1-docker.pkg.dev/your-gcp-project-id/leetcode-bot/leetcode-telegram-bot:latest"
 
 # These values are seeded into Secret Manager by Terraform.
 telegram_bot_token = "123456789:replace_me"

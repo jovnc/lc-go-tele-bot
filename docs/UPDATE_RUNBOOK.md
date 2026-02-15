@@ -32,14 +32,14 @@ git pull
 GOCACHE=$(pwd)/.gocache go test ./...
 ```
 
-2. Build and push a new image tag.
+2. Build and push the `latest` image.
 
 ```bash
 PROJECT_ID="<PROJECT_ID>"
-REGION="us-central1"
+REGION="asia-southeast1"
 REPO="leetcode-bot"
 SERVICE="leetcode-telegram-bot"
-TAG="v2"
+TAG="latest"
 IMAGE="${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO}/${SERVICE}:${TAG}"
 
 gcloud auth configure-docker "${REGION}-docker.pkg.dev"
@@ -52,7 +52,13 @@ docker push "$IMAGE"
 Edit `terraform/terraform.tfvars`:
 
 ```hcl
-container_image = "<REGION>-docker.pkg.dev/<PROJECT_ID>/<REPO>/<SERVICE>:<TAG>"
+container_image = "<REGION>-docker.pkg.dev/<PROJECT_ID>/<REPO>/<SERVICE>:latest"
+```
+
+Or use one command from repo root to push image + update `container_image` + apply:
+
+```bash
+make cloud-update PROJECT_ID="<PROJECT_ID>"
 ```
 
 4. Apply Terraform.
@@ -114,7 +120,7 @@ terraform apply tfplan
 
 ## Rollback
 
-If a deployment is bad, roll back by pinning `container_image` to the previous known-good tag in `terraform/terraform.tfvars`, then apply again:
+If a deployment is bad, roll back by pinning `container_image` to a previous known-good image tag or digest in `terraform/terraform.tfvars`, then apply again:
 
 ```bash
 cd terraform
@@ -131,7 +137,7 @@ To destroy all managed resources, run from repo root:
 
 ## Release Checklist
 
-1. New image tag pushed successfully.
+1. New `latest` image pushed successfully.
 2. `container_image` updated in `terraform/terraform.tfvars`.
 3. `terraform apply` completed without errors.
 4. `/healthz` returns `ok`.
