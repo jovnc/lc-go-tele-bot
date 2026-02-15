@@ -13,6 +13,7 @@ bin/
 .terraform.lock.hcl
 crash.log
 terraform.tfvars
+tfplan
 
 # Local caches used in sandbox
 .gocache/
