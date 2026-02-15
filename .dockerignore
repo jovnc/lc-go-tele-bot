@@ -1,0 +1,7 @@
+.git
+.gitignore
+.terraform
+terraform/*.tfstate*
+.gocache
+.gomodcache
+README.md

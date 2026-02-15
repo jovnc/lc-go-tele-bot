@@ -1,0 +1,19 @@
+# Go
+bin/
+*.test
+*.out
+
+# Local env
+.env
+
+# Terraform
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+crash.log
+terraform.tfvars
+
+# Local caches used in sandbox
+.gocache/
+.gomodcache/

@@ -1,0 +1,43 @@
+project_id         = "your-gcp-project-id"
+region             = "us-central1"
+service_name       = "leetcode-telegram-bot"
+artifact_repo_name = "leetcode-bot"
+
+# Update this after first image build and push (deploy script default tag: v1).
+container_image = "us-central1-docker.pkg.dev/your-gcp-project-id/leetcode-bot/leetcode-telegram-bot:v1"
+
+# These values are seeded into Secret Manager by Terraform.
+telegram_bot_token = "123456789:replace_me"
+webhook_secret     = "replace-with-random-long-secret"
+cron_secret        = "replace-with-random-long-secret"
+openai_api_key     = "sk-proj-replace-me"
+
+# Optional custom secret IDs.
+telegram_bot_token_secret_id = "telegram-bot-token"
+webhook_secret_secret_id     = "telegram-webhook-secret"
+cron_secret_secret_id        = "telegram-cron-secret"
+openai_api_key_secret_id     = "openai-api-key"
+
+default_daily_time = "20:00"
+daily_timezone     = "Asia/Singapore"
+ai_enabled         = true
+openai_model       = "gpt-4o-mini"
+ai_timeout_sec     = 25
+allowed_telegram_usernames = "your_username,teammate_username"
+
+# Keep false on first deployment unless you already know the public URL.
+auto_set_webhook = false
+bot_base_url     = ""
+
+# Free-tier friendly defaults.
+max_instance_count = 1
+cpu_limit          = "1"
+memory_limit       = "512Mi"
+
+# Cloud Scheduler calls every minute, app checks per chat HH:MM.
+scheduler_cron     = "* * * * *"
+scheduler_timezone = "Asia/Singapore"
+
+# Set false if Firestore default DB already exists in project.
+create_firestore_database = true
+firestore_location        = "nam5"
