@@ -3,6 +3,7 @@ package commands
 import (
 	"context"
 	"fmt"
+	"strings"
 )
 
 func (h *Handler) cmdDeleteRevisedQuestion(ctx context.Context, chatID int64, args []string) error {
@@ -10,7 +11,7 @@ func (h *Handler) cmdDeleteRevisedQuestion(ctx context.Context, chatID int64, ar
 		return h.deps.SendMessage(ctx, chatID, "Usage: /delete <slug>, e.g. /delete two-sum")
 	}
 
-	slug := normalizeSlug(args[0])
+	slug := normalizeSlug(strings.Join(args, " "))
 	if slug == "" {
 		return h.deps.SendMessage(ctx, chatID, "Usage: /delete <slug>, e.g. /delete two-sum")
 	}

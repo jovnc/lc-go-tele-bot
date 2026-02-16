@@ -1,6 +1,9 @@
 package commands
 
-import "context"
+import (
+	"context"
+	"strings"
+)
 
 func (h *Handler) cmdRevise(ctx context.Context, chatID int64, args []string) error {
 	var (
@@ -9,7 +12,7 @@ func (h *Handler) cmdRevise(ctx context.Context, chatID int64, args []string) er
 	)
 
 	if len(args) > 0 {
-		slug := normalizeSlug(args[0])
+		slug := normalizeSlug(strings.Join(args, " "))
 		if slug == "" {
 			return h.deps.SendMessage(ctx, chatID, "Usage: /revise <slug>, e.g. /revise two-sum")
 		}
