@@ -113,7 +113,8 @@ func (d *commandDeps) IsAnsweredQuestionNotFound(err error) bool {
 	return errors.Is(err, ErrAnsweredQuestionNotFound)
 }
 
-func (d *commandDeps) FormatQuestionMessage(intro, note string, q commands.Question, prompt string) string {
+func (d *commandDeps) FormatQuestionMessage(ctx context.Context, intro, note string, q commands.Question, prompt string) string {
+	prompt = d.service.formatQuestionPrompt(ctx, fromCommandQuestion(q), prompt)
 	return formatQuestionMessage(intro, note, fromCommandQuestion(q), prompt)
 }
 

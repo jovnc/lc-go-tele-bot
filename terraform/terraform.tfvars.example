@@ -3,7 +3,7 @@ region             = "asia-southeast1"
 service_name       = "leetcode-telegram-bot"
 artifact_repo_name = "leetcode-bot"
 
-# Keep this on latest; Makefile cloud-update rewrites this value automatically before apply.
+# Initial value can be tag-based; Makefile cloud-deploy rewrites this to an immutable image digest before apply.
 container_image = "asia-southeast1-docker.pkg.dev/your-gcp-project-id/leetcode-bot/leetcode-telegram-bot:latest"
 
 # These values are seeded into Secret Manager by Terraform.

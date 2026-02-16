@@ -54,6 +54,12 @@ type Coach interface {
 	GenerateHint(ctx context.Context, question Question, learnerContext string) (string, error)
 }
 
+// QuestionFormatter is an optional extension that allows AI-driven
+// restructuring of raw LeetCode statements before Telegram rendering.
+type QuestionFormatter interface {
+	FormatQuestion(ctx context.Context, question Question, prompt string) (string, error)
+}
+
 type StateStore interface {
 	GetChatSettings(ctx context.Context, chatID int64) (ChatSettings, error)
 	UpsertDailySettings(ctx context.Context, chatID int64, enabled bool, hhmm, tz string) error

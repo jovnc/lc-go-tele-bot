@@ -10,13 +10,14 @@ REGION ?= asia-southeast1
 REPO ?= leetcode-bot
 SERVICE ?= leetcode-telegram-bot
 TAG ?= latest
-IMAGE ?= $(REGION)-docker.pkg.dev/$(PROJECT_ID)/$(REPO)/$(SERVICE):$(TAG)
+IMAGE_REPO ?= $(REGION)-docker.pkg.dev/$(PROJECT_ID)/$(REPO)/$(SERVICE)
+IMAGE ?= $(IMAGE_REPO):$(TAG)
 
 TF_DIR ?= terraform
 TF_PLAN ?= tfplan
 TFVARS_FILE ?= $(TF_DIR)/terraform.tfvars
 
-.PHONY: help build dev test deploy-docker deploy tf-init tf-plan tf-set-image cloud-update terraform-apply
+.PHONY: help build dev test deploy-docker deploy tf-init tf-plan tf-set-image cloud-deploy terraform-apply
 
 help:
 	@echo "Common targets:"
@@ -24,7 +25,7 @@ help:
 	@echo "  make dev                           Run the bot locally (loads .env if present)"
 	@echo "  make test                          Run all Go tests"
 	@echo "  make deploy-docker PROJECT_ID=...  Build and push Docker image to Artifact Registry"
-	@echo "  make cloud-update PROJECT_ID=...   Push image and apply Terraform in $(TF_DIR)"
+	@echo "  make cloud-deploy PROJECT_ID=...   Push image and apply Terraform in $(TF_DIR)"
 
 build:
 	@mkdir -p "$(BUILD_DIR)"
@@ -53,15 +54,24 @@ tf-plan: tf-init
 
 tf-set-image:
 	@[ -f "$(TFVARS_FILE)" ] || (echo "$(TFVARS_FILE) not found. Create it from terraform/terraform.tfvars.example first." && exit 1)
-	@if grep -Eq '^[[:space:]]*container_image[[:space:]]*=' "$(TFVARS_FILE)"; then \
-		sed -i.bak -E 's|^[[:space:]]*container_image[[:space:]]*=.*|container_image = "$(IMAGE)"|' "$(TFVARS_FILE)"; \
+	@DIGEST=""; \
+	for i in 1 2 3 4 5; do \
+		DIGEST="$$(gcloud artifacts docker images describe "$(IMAGE)" --format='get(image_summary.digest)' 2>/dev/null || true)"; \
+		[ -n "$$DIGEST" ] && break; \
+		sleep 2; \
+	done; \
+	[ -n "$$DIGEST" ] || (echo "Could not resolve digest for $(IMAGE). Run make deploy-docker first." && exit 1); \
+	DEPLOY_IMAGE="$(IMAGE_REPO)@$$DIGEST"; \
+	if grep -Eq '^[[:space:]]*container_image[[:space:]]*=' "$(TFVARS_FILE)"; then \
+		sed -i.bak -E "s|^[[:space:]]*container_image[[:space:]]*=.*|container_image = \"$$DEPLOY_IMAGE\"|" "$(TFVARS_FILE)"; \
 	else \
-		printf '\ncontainer_image = "%s"\n' "$(IMAGE)" >> "$(TFVARS_FILE)"; \
-	fi
+		printf '\ncontainer_image = "%s"\n' "$$DEPLOY_IMAGE" >> "$(TFVARS_FILE)"; \
+	fi; \
+	echo "Resolved deploy image: $$DEPLOY_IMAGE"
 	@rm -f "$(TFVARS_FILE).bak"
-	@echo "Updated container_image in $(TFVARS_FILE) -> $(IMAGE)"
+	@echo "Updated container_image in $(TFVARS_FILE)"
 
-cloud-update: deploy-docker tf-set-image tf-plan
+cloud-deploy: deploy-docker tf-set-image tf-plan
 	terraform -chdir="$(TF_DIR)" apply "$(TF_PLAN)"
 
-terraform-apply: cloud-update
+terraform-apply: cloud-deploy

@@ -105,6 +105,40 @@ func (c *OpenAICoach) GenerateHint(ctx context.Context, question bot.Question, l
 	return hint, nil
 }
 
+func (c *OpenAICoach) FormatQuestion(ctx context.Context, question bot.Question, prompt string) (string, error) {
+	prompt = strings.TrimSpace(prompt)
+	if prompt == "" {
+		return "", fmt.Errorf("question prompt is empty")
+	}
+
+	system := "You format LeetCode problem statements for Telegram chat. Preserve facts exactly and do not invent details."
+	user := fmt.Sprintf(
+		"Question: %s (%s)\nLink: %s\n\nRaw statement:\n%s\n\nReturn valid JSON only with key: formatted_prompt (string).\nFormatting rules:\n- plain text only; no HTML.\n- use concise section headings starting with ## when helpful.\n- use '-' bullet points for lists.\n- format each example in a fenced code block using ```text.\n- preserve variable names, numbers, and logic exactly.\n- do not add constraints/examples that are not present.\n- keep it concise and scannable for chat.",
+		question.Title,
+		question.Difficulty,
+		question.URL,
+		prompt,
+	)
+
+	content, err := c.chatCompletion(ctx, system, user, true)
+	if err != nil {
+		return "", err
+	}
+
+	var parsed struct {
+		FormattedPrompt string `json:"formatted_prompt"`
+	}
+	if err := json.Unmarshal([]byte(content), &parsed); err != nil {
+		return "", fmt.Errorf("parse AI question format JSON: %w", err)
+	}
+
+	formatted := strings.TrimSpace(parsed.FormattedPrompt)
+	if formatted == "" {
+		return "", fmt.Errorf("AI formatted question content is empty")
+	}
+	return formatted, nil
+}
+
 func (c *OpenAICoach) chatCompletion(ctx context.Context, system, user string, forceJSON bool) (string, error) {
 	type chatMessage struct {
 		Role    string `json:"role"`

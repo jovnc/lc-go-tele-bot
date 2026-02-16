@@ -247,9 +247,36 @@ func (s *Service) sendUniqueQuestion(ctx context.Context, chatID int64, intro st
 		s.logger.Printf("question prompt lookup failed for slug=%s: %v", q.Slug, err)
 		prompt = ""
 	}
+	prompt = s.formatQuestionPrompt(ctx, q, prompt)
 
 	msg := formatQuestionMessage(intro, note, q, prompt)
 	return s.tgClient.SendRichMessage(ctx, chatID, msg)
+}
+
+func (s *Service) formatQuestionPrompt(ctx context.Context, q Question, prompt string) string {
+	prompt = strings.TrimSpace(prompt)
+	if prompt == "" || s.coach == nil {
+		return prompt
+	}
+
+	formatter, ok := s.coach.(QuestionFormatter)
+	if !ok {
+		return prompt
+	}
+
+	formatted, err := formatter.FormatQuestion(ctx, q, prompt)
+	if err != nil {
+		s.logger.Printf("AI question formatting failed for slug=%s, using raw prompt: %v", q.Slug, err)
+		return prompt
+	}
+
+	formatted = strings.TrimSpace(formatted)
+	if formatted == "" {
+		s.logger.Printf("AI question formatting returned empty content for slug=%s, using raw prompt", q.Slug)
+		return prompt
+	}
+
+	return formatted
 }
 
 func (s *Service) persistCompletedQuestion(ctx context.Context, chatID int64, q Question) error {

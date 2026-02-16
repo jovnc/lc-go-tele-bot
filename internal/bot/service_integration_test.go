@@ -66,10 +66,12 @@ func (f *fakeQuestionProvider) QuestionPrompt(_ context.Context, slug string) (s
 }
 
 type fakeCoach struct {
-	review    AnswerReview
-	reviewErr error
-	hint      string
-	hintErr   error
+	review            AnswerReview
+	reviewErr         error
+	hint              string
+	hintErr           error
+	questionPrompt    string
+	questionPromptErr error
 }
 
 func (f *fakeCoach) ReviewAnswer(_ context.Context, _ Question, _ string) (AnswerReview, error) {
@@ -84,6 +86,16 @@ func (f *fakeCoach) GenerateHint(_ context.Context, _ Question, _ string) (strin
 		return "", f.hintErr
 	}
 	return f.hint, nil
+}
+
+func (f *fakeCoach) FormatQuestion(_ context.Context, _ Question, prompt string) (string, error) {
+	if f.questionPromptErr != nil {
+		return "", f.questionPromptErr
+	}
+	if strings.TrimSpace(f.questionPrompt) == "" {
+		return prompt, nil
+	}
+	return f.questionPrompt, nil
 }
 
 type memoryStore struct {
@@ -370,6 +382,47 @@ func TestGradingUsesCoachWhenConfigured(t *testing.T) {
 	seen, _ := store.SeenQuestionSet(context.Background(), chatID)
 	if len(seen) != 1 {
 		t.Fatalf("expected correct answer to save question in seen history")
+	}
+}
+
+func TestLCUsesAIQuestionFormattingWhenAvailable(t *testing.T) {
+	tg := newFakeTelegramClient()
+	store := newMemoryStore()
+	provider := &fakeQuestionProvider{questions: []Question{
+		{Slug: "asteroid-collision", Title: "Asteroid Collision", Difficulty: "Medium", URL: "https://leetcode.com/problems/asteroid-collision/"},
+	}}
+	coach := &fakeCoach{
+		questionPrompt: "## Given\n- Asteroids move at same speed.\n- Sign is direction, absolute value is size.\n\n## Example 1\n```text\nInput: [5,10,-5]\nOutput: [5,10]\n```",
+	}
+
+	svc := NewService(
+		log.New(bytes.NewBuffer(nil), "", 0),
+		tg,
+		provider,
+		coach,
+		store,
+		"webhook-secret",
+		"cron-secret",
+		"20:00",
+		"Asia/Singapore",
+		nil,
+	)
+
+	chatID := int64(178)
+	callWebhook(t, svc, "/webhook/webhook-secret", webhookPayload{Message: webhookMessage{Chat: webhookChat{ID: chatID}, Text: "/lc"}})
+
+	messages := tg.messages[chatID]
+	if len(messages) != 1 {
+		t.Fatalf("expected 1 outgoing message, got %d", len(messages))
+	}
+	if !strings.Contains(messages[0], "<b>▸ Given</b>") {
+		t.Fatalf("expected AI heading formatting in /lc output: %s", messages[0])
+	}
+	if !strings.Contains(messages[0], "• Asteroids move at same speed.") {
+		t.Fatalf("expected AI bullet formatting in /lc output: %s", messages[0])
+	}
+	if !strings.Contains(messages[0], "<pre><code class=\"language-text\">") {
+		t.Fatalf("expected AI code block formatting in /lc output: %s", messages[0])
 	}
 }
 

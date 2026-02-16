@@ -51,5 +51,5 @@ type Dependencies interface {
 	DefaultTZ() string
 	Logf(format string, args ...any)
 	IsAnsweredQuestionNotFound(err error) bool
-	FormatQuestionMessage(intro, note string, q Question, prompt string) string
+	FormatQuestionMessage(ctx context.Context, intro, note string, q Question, prompt string) string
 }
