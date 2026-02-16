@@ -5,59 +5,59 @@ import (
 	"testing"
 )
 
-func TestFormatQuestionMarkdownIncludesSectionsAndEscapes(t *testing.T) {
-	msg := formatQuestionMarkdown(
+func TestFormatQuestionMessageIncludesSectionsAndEscapes(t *testing.T) {
+	msg := formatQuestionMessage(
 		"Here is your random LeetCode question:",
 		"",
 		Question{Title: "Two Sum", Difficulty: "Easy"},
 		"Given nums[i] and target (int), find answer_1.",
 	)
 
-	for _, marker := range []string{"*🧩 Here is your random LeetCode question:*", "*Problem Statement*", "*Next Step*"} {
+	for _, marker := range []string{"<b>🧩 Here is your random LeetCode question:</b>", "<b>Problem</b>", "<b>Next</b>"} {
 		if !strings.Contains(msg, marker) {
-			t.Fatalf("expected question markdown to include %q: %s", marker, msg)
+			t.Fatalf("expected question message to include %q: %s", marker, msg)
 		}
 	}
-	if !strings.Contains(msg, "nums\\[i\\]") {
-		t.Fatalf("expected markdown escaping for brackets: %s", msg)
+	if !strings.Contains(msg, "nums[i]") {
+		t.Fatalf("expected bracket content to remain readable: %s", msg)
 	}
-	if !strings.Contains(msg, "answer\\_1") {
-		t.Fatalf("expected markdown escaping for underscore: %s", msg)
+	if !strings.Contains(msg, "answer_1") {
+		t.Fatalf("expected underscore content to remain readable: %s", msg)
 	}
 }
 
-func TestFormatEvaluationMarkdownIncludesStatusSection(t *testing.T) {
-	msg := formatEvaluationMarkdown(
+func TestFormatEvaluationMessageIncludesStatusSection(t *testing.T) {
+	msg := formatEvaluationMessage(
 		Question{Title: "Two Sum", Difficulty: "Easy"},
 		8,
 		"AI",
 		"Good approach.",
 		"State complexity.",
-		"Correct. Saved to your seen/revision history.",
+		"Correct. Saved to history.",
 	)
 
-	for _, marker := range []string{"*🧠 Evaluation*", "*Feedback*", "*Guided Next Steps*", "*Status*", "Correct\\. Saved"} {
+	for _, marker := range []string{"<b>🧠 Evaluation</b>", "<b>Feedback</b>", "<b>Next Steps</b>", "<b>Status</b>", "Correct. Saved"} {
 		if !strings.Contains(msg, marker) {
-			t.Fatalf("expected evaluation markdown to include %q: %s", marker, msg)
+			t.Fatalf("expected evaluation message to include %q: %s", marker, msg)
 		}
 	}
 }
 
-func TestRenderMarkdownForTelegramHeadingsListsAndCodeBlocks(t *testing.T) {
+func TestRenderStructuredTextForTelegramHeadingsListsAndCodeBlocks(t *testing.T) {
 	input := "# Main\n## Sub\n- item\n1. first\n```go\nfmt.Println(`ok`)\n```"
-	got := renderMarkdownForTelegram(input)
+	got := renderStructuredTextForTelegram(input)
 
 	checks := []string{
-		"*Main*",
-		"*▸ Sub*",
+		"<b>Main</b>",
+		"<b>▸ Sub</b>",
 		"• item",
-		"1\\. first",
-		"```go",
-		"fmt.Println(\\`ok\\`)",
+		"1. first",
+		"<pre><code class=\"language-go\">",
+		"fmt.Println(`ok`)",
 	}
 	for _, c := range checks {
 		if !strings.Contains(got, c) {
-			t.Fatalf("expected rendered markdown to include %q: %s", c, got)
+			t.Fatalf("expected rendered rich text to include %q: %s", c, got)
 		}
 	}
 }

@@ -29,7 +29,7 @@ func NewOpenAICoach(apiKey, model string, timeout time.Duration) (*OpenAICoach, 
 	}
 	model = strings.TrimSpace(model)
 	if model == "" {
-		model = "gpt-4o-mini"
+		return nil, fmt.Errorf("OPENAI_MODEL is required")
 	}
 	if timeout <= 0 {
 		timeout = 25 * time.Second
@@ -46,9 +46,9 @@ func NewOpenAICoach(apiKey, model string, timeout time.Duration) (*OpenAICoach, 
 }
 
 func (c *OpenAICoach) ReviewAnswer(ctx context.Context, question bot.Question, answer string) (bot.AnswerReview, error) {
-	system := "You are a senior coding interview coach. Be precise and actionable."
+	system := "You are a senior coding interview coach. Be concise, specific, and actionable."
 	user := fmt.Sprintf(
-		"Question: %s (%s)\nLink: %s\n\nCandidate answer:\n%s\n\nReturn valid JSON only with keys: score (integer 1-10), feedback (string), guidance (string). Guidance must be a concrete step-by-step plan to improve and solve correctly.",
+		"Question: %s (%s)\nLink: %s\n\nCandidate answer:\n%s\n\nReturn valid JSON only with keys: score (integer 1-10), feedback (string), guidance (string).\nRules:\n- feedback: max 4 short bullet points.\n- guidance: exactly 3 numbered steps.\n- keep each line under 20 words.\n- do not include filler text.",
 		question.Title,
 		question.Difficulty,
 		question.URL,
@@ -74,6 +74,35 @@ func (c *OpenAICoach) ReviewAnswer(ctx context.Context, question bot.Question, a
 		Feedback: strings.TrimSpace(parsed.Feedback),
 		Guidance: strings.TrimSpace(parsed.Guidance),
 	}, nil
+}
+
+func (c *OpenAICoach) GenerateHint(ctx context.Context, question bot.Question, learnerContext string) (string, error) {
+	system := "You are a coding interview coach. Give hints only, never the full final solution."
+	user := fmt.Sprintf(
+		"Question: %s (%s)\nLink: %s\nLearner context: %s\n\nReturn valid JSON only with key: hint (string).\nHint rules:\n- concise.\n- include a short heading section and bullet points.\n- include a tiny pseudocode block when useful.\n- do not reveal the full solution or final code.",
+		question.Title,
+		question.Difficulty,
+		question.URL,
+		strings.TrimSpace(learnerContext),
+	)
+
+	content, err := c.chatCompletion(ctx, system, user, true)
+	if err != nil {
+		return "", err
+	}
+
+	var parsed struct {
+		Hint string `json:"hint"`
+	}
+	if err := json.Unmarshal([]byte(content), &parsed); err != nil {
+		return "", fmt.Errorf("parse AI hint JSON: %w", err)
+	}
+
+	hint := strings.TrimSpace(parsed.Hint)
+	if hint == "" {
+		return "", fmt.Errorf("AI hint content is empty")
+	}
+	return hint, nil
 }
 
 func (c *OpenAICoach) chatCompletion(ctx context.Context, system, user string, forceJSON bool) (string, error) {

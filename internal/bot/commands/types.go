@@ -30,7 +30,7 @@ type AnsweredQuestion struct {
 
 type Dependencies interface {
 	SendMessage(ctx context.Context, chatID int64, text string) error
-	SendMarkdownMessage(ctx context.Context, chatID int64, text string) error
+	SendRichMessage(ctx context.Context, chatID int64, text string) error
 
 	GetChatSettings(ctx context.Context, chatID int64) (ChatSettings, error)
 	UpsertDailySettings(ctx context.Context, chatID int64, enabled bool, hhmm, tz string) error
@@ -44,11 +44,12 @@ type Dependencies interface {
 	QuestionPrompt(ctx context.Context, slug string) (string, error)
 	SendUniqueQuestion(ctx context.Context, chatID int64, intro string, transientExclude ...string) error
 	PersistCompletedQuestion(ctx context.Context, chatID int64, q Question) error
+	SendHint(ctx context.Context, chatID int64, learnerContext string) error
 
 	Now() time.Time
 	DefaultDailyHH() string
 	DefaultTZ() string
 	Logf(format string, args ...any)
 	IsAnsweredQuestionNotFound(err error) bool
-	FormatQuestionMarkdown(intro, note string, q Question, prompt string) string
+	FormatQuestionMessage(intro, note string, q Question, prompt string) string
 }

@@ -40,7 +40,7 @@ type AnsweredQuestion struct {
 
 type TelegramSender interface {
 	SendMessage(ctx context.Context, chatID int64, text string) error
-	SendMarkdownMessage(ctx context.Context, chatID int64, text string) error
+	SendRichMessage(ctx context.Context, chatID int64, text string) error
 }
 
 type QuestionProvider interface {
@@ -51,6 +51,7 @@ type QuestionProvider interface {
 
 type Coach interface {
 	ReviewAnswer(ctx context.Context, question Question, answer string) (AnswerReview, error)
+	GenerateHint(ctx context.Context, question Question, learnerContext string) (string, error)
 }
 
 type StateStore interface {

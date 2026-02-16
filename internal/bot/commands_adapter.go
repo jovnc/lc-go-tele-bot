@@ -20,8 +20,8 @@ func (d *commandDeps) SendMessage(ctx context.Context, chatID int64, text string
 	return d.service.tgClient.SendMessage(ctx, chatID, text)
 }
 
-func (d *commandDeps) SendMarkdownMessage(ctx context.Context, chatID int64, text string) error {
-	return d.service.tgClient.SendMarkdownMessage(ctx, chatID, text)
+func (d *commandDeps) SendRichMessage(ctx context.Context, chatID int64, text string) error {
+	return d.service.tgClient.SendRichMessage(ctx, chatID, text)
 }
 
 func (d *commandDeps) GetChatSettings(ctx context.Context, chatID int64) (commands.ChatSettings, error) {
@@ -89,6 +89,10 @@ func (d *commandDeps) PersistCompletedQuestion(ctx context.Context, chatID int64
 	return d.service.persistCompletedQuestion(ctx, chatID, fromCommandQuestion(q))
 }
 
+func (d *commandDeps) SendHint(ctx context.Context, chatID int64, learnerContext string) error {
+	return d.service.sendHintForChat(ctx, chatID, learnerContext)
+}
+
 func (d *commandDeps) Now() time.Time {
 	return d.service.nowFn()
 }
@@ -109,8 +113,8 @@ func (d *commandDeps) IsAnsweredQuestionNotFound(err error) bool {
 	return errors.Is(err, ErrAnsweredQuestionNotFound)
 }
 
-func (d *commandDeps) FormatQuestionMarkdown(intro, note string, q commands.Question, prompt string) string {
-	return formatQuestionMarkdown(intro, note, fromCommandQuestion(q), prompt)
+func (d *commandDeps) FormatQuestionMessage(intro, note string, q commands.Question, prompt string) string {
+	return formatQuestionMessage(intro, note, fromCommandQuestion(q), prompt)
 }
 
 func toCommandQuestion(q Question) commands.Question {

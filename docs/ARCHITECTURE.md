@@ -45,10 +45,6 @@ flowchart LR
   - Root runtime entrypoint (minimal wrapper)
   - Delegates startup to `internal/app`
 
-- `cmd/bot/main.go`
-  - Alternative entrypoint for cmd-based layouts
-  - Delegates startup to `internal/app`
-
 - `internal/app/main.go`
   - Shared runtime bootstrap
   - Wires config, clients, service dependencies, and HTTP routes
@@ -95,7 +91,7 @@ Subcollections:
 
 1. Telegram sends update to webhook.
 2. Bot parses command or free text.
-3. For `/lc`, bot chooses unseen question, stores it as `current_question`, fetches statement content via LeetCode GraphQL, and sends it in Telegram Markdown.
+3. For `/lc`, bot chooses unseen question, stores it as `current_question`, fetches statement content via LeetCode GraphQL, and sends it using Telegram HTML rich text.
 4. For answer text, bot evaluates using AI when available, otherwise heuristic fallback.
 5. Bot records answered metadata (`attempts`, timestamps) only when answer is correct (score >= 8) or user sends `/done`.
 6. `/skip` replaces current question and does not save it.

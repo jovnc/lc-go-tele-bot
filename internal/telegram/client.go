@@ -36,11 +36,11 @@ func (c *Client) SendMessage(ctx context.Context, chatID int64, text string) err
 	return c.postJSON(ctx, "/sendMessage", payload)
 }
 
-func (c *Client) SendMarkdownMessage(ctx context.Context, chatID int64, text string) error {
+func (c *Client) SendRichMessage(ctx context.Context, chatID int64, text string) error {
 	payload := map[string]any{
 		"chat_id":                  chatID,
 		"text":                     text,
-		"parse_mode":               "MarkdownV2",
+		"parse_mode":               "HTML",
 		"disable_web_page_preview": true,
 	}
 	return c.postJSON(ctx, "/sendMessage", payload)

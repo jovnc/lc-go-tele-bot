@@ -9,6 +9,7 @@ func (h *Handler) cmdHelp(ctx context.Context, chatID int64) error {
 func helpText() string {
 	return `Commands:
 /lc - Get a random LeetCode question
+/hint [context] - Get a hint for the active question
 /done - Mark current question complete and save it to seen/revision history
 /skip - Skip the current question without adding it to seen history
 /exit - Exit active /lc practice mode
@@ -20,5 +21,6 @@ func helpText() string {
 /daily_time HH:MM - Set daily time in SGT and enable
 /daily_status - Show current daily schedule
 
-After /lc, send your solution idea in words/pseudocode and I will evaluate it with AI (fallback: heuristic).`
+After /lc, send your approach for evaluation.
+Use /hint anytime in active practice mode.`
 }

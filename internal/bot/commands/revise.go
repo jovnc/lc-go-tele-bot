@@ -48,6 +48,6 @@ func (h *Handler) cmdRevise(ctx context.Context, chatID int64, args []string) er
 		prompt = ""
 	}
 
-	msg := h.deps.FormatQuestionMarkdown("Revision question from your history:", "", q, prompt)
-	return h.deps.SendMarkdownMessage(ctx, chatID, msg)
+	msg := h.deps.FormatQuestionMessage("Revision question from your history:", "", q, prompt)
+	return h.deps.SendRichMessage(ctx, chatID, msg)
 }

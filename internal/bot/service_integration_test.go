@@ -14,14 +14,14 @@ import (
 )
 
 type fakeTelegramClient struct {
-	messages      map[int64][]string
-	markdownCount map[int64]int
+	messages  map[int64][]string
+	richCount map[int64]int
 }
 
 func newFakeTelegramClient() *fakeTelegramClient {
 	return &fakeTelegramClient{
-		messages:      make(map[int64][]string),
-		markdownCount: make(map[int64]int),
+		messages:  make(map[int64][]string),
+		richCount: make(map[int64]int),
 	}
 }
 
@@ -30,9 +30,9 @@ func (f *fakeTelegramClient) SendMessage(_ context.Context, chatID int64, text s
 	return nil
 }
 
-func (f *fakeTelegramClient) SendMarkdownMessage(_ context.Context, chatID int64, text string) error {
+func (f *fakeTelegramClient) SendRichMessage(_ context.Context, chatID int64, text string) error {
 	f.messages[chatID] = append(f.messages[chatID], text)
-	f.markdownCount[chatID]++
+	f.richCount[chatID]++
 	return nil
 }
 
@@ -68,6 +68,8 @@ func (f *fakeQuestionProvider) QuestionPrompt(_ context.Context, slug string) (s
 type fakeCoach struct {
 	review    AnswerReview
 	reviewErr error
+	hint      string
+	hintErr   error
 }
 
 func (f *fakeCoach) ReviewAnswer(_ context.Context, _ Question, _ string) (AnswerReview, error) {
@@ -75,6 +77,13 @@ func (f *fakeCoach) ReviewAnswer(_ context.Context, _ Question, _ string) (Answe
 		return AnswerReview{}, f.reviewErr
 	}
 	return f.review, nil
+}
+
+func (f *fakeCoach) GenerateHint(_ context.Context, _ Question, _ string) (string, error) {
+	if f.hintErr != nil {
+		return "", f.hintErr
+	}
+	return f.hint, nil
 }
 
 type memoryStore struct {
@@ -274,10 +283,10 @@ func TestWebhookLCUniquenessAndGrading(t *testing.T) {
 	if !strings.Contains(messages[1], "Merge Intervals") {
 		t.Fatalf("second question should be Merge Intervals, got: %s", messages[1])
 	}
-	if !strings.Contains(messages[2], "*Score:*") {
+	if !strings.Contains(messages[2], "Score: <b>") {
 		t.Fatalf("grading response missing score: %s", messages[2])
 	}
-	if !strings.Contains(messages[2], "*Source:* Heuristic") {
+	if !strings.Contains(messages[2], "Source: Heuristic") {
 		t.Fatalf("expected heuristic fallback, got: %s", messages[2])
 	}
 	if !strings.Contains(messages[2], "Not saved yet") {
@@ -299,8 +308,8 @@ func TestWebhookLCUniquenessAndGrading(t *testing.T) {
 		t.Fatalf("expected unanswered attempt to stay out of seen history")
 	}
 
-	if tg.markdownCount[chatID] != 3 {
-		t.Fatalf("expected all /lc + evaluation responses to use markdown; markdownCount=%d", tg.markdownCount[chatID])
+	if tg.richCount[chatID] != 3 {
+		t.Fatalf("expected all /lc + evaluation responses to use rich formatting; richCount=%d", tg.richCount[chatID])
 	}
 }
 
@@ -340,13 +349,13 @@ func TestGradingUsesCoachWhenConfigured(t *testing.T) {
 	if len(messages) != 2 {
 		t.Fatalf("expected 2 outgoing messages, got %d", len(messages))
 	}
-	if !strings.Contains(messages[1], "*Source:* AI") {
+	if !strings.Contains(messages[1], "Source: AI") {
 		t.Fatalf("grading should come from AI coach, got: %s", messages[1])
 	}
 	if !strings.Contains(messages[1], "invariant") {
 		t.Fatalf("AI guidance missing from grade response: %s", messages[1])
 	}
-	if !strings.Contains(messages[1], "Correct\\. Saved") {
+	if !strings.Contains(messages[1], "Correct. Saved") {
 		t.Fatalf("expected correct status in evaluation output, got: %s", messages[1])
 	}
 
@@ -361,6 +370,83 @@ func TestGradingUsesCoachWhenConfigured(t *testing.T) {
 	seen, _ := store.SeenQuestionSet(context.Background(), chatID)
 	if len(seen) != 1 {
 		t.Fatalf("expected correct answer to save question in seen history")
+	}
+}
+
+func TestHintCommandUsesAIWhenAvailable(t *testing.T) {
+	tg := newFakeTelegramClient()
+	store := newMemoryStore()
+	provider := &fakeQuestionProvider{questions: []Question{
+		{Slug: "two-sum", Title: "Two Sum", Difficulty: "Easy", URL: "https://leetcode.com/problems/two-sum/"},
+	}}
+	coach := &fakeCoach{
+		hint: "## Direction\n- Track complements in a map.\n\n## Pseudocode\n```go\nfor i, x := range nums {\n    if j, ok := seen[target-x]; ok { return []int{j, i} }\n    seen[x] = i\n}\n```",
+	}
+
+	svc := NewService(
+		log.New(bytes.NewBuffer(nil), "", 0),
+		tg,
+		provider,
+		coach,
+		store,
+		"webhook-secret",
+		"cron-secret",
+		"20:00",
+		"Asia/Singapore",
+		nil,
+	)
+
+	chatID := int64(78)
+
+	callWebhook(t, svc, "/webhook/webhook-secret", webhookPayload{Message: webhookMessage{Chat: webhookChat{ID: chatID}, Text: "/lc"}})
+	callWebhook(t, svc, "/webhook/webhook-secret", webhookPayload{Message: webhookMessage{Chat: webhookChat{ID: chatID}, Text: "/hint"}})
+
+	messages := tg.messages[chatID]
+	if len(messages) != 2 {
+		t.Fatalf("expected 2 outgoing messages, got %d", len(messages))
+	}
+	if !strings.Contains(messages[1], "<b>💡 Hint</b>") {
+		t.Fatalf("expected hint response, got: %s", messages[1])
+	}
+	if !strings.Contains(messages[1], "Source: AI") {
+		t.Fatalf("expected AI hint source, got: %s", messages[1])
+	}
+}
+
+func TestHintRequestFromFreeTextUsesHintFlow(t *testing.T) {
+	tg := newFakeTelegramClient()
+	store := newMemoryStore()
+	provider := &fakeQuestionProvider{questions: []Question{
+		{Slug: "merge-intervals", Title: "Merge Intervals", Difficulty: "Medium", URL: "https://leetcode.com/problems/merge-intervals/"},
+	}}
+
+	svc := NewService(
+		log.New(bytes.NewBuffer(nil), "", 0),
+		tg,
+		provider,
+		nil,
+		store,
+		"webhook-secret",
+		"cron-secret",
+		"20:00",
+		"Asia/Singapore",
+		nil,
+	)
+
+	chatID := int64(79)
+
+	callWebhook(t, svc, "/webhook/webhook-secret", webhookPayload{Message: webhookMessage{Chat: webhookChat{ID: chatID}, Text: "/lc"}})
+	callWebhook(t, svc, "/webhook/webhook-secret", webhookPayload{Message: webhookMessage{Chat: webhookChat{ID: chatID}, Text: "hint please"}})
+
+	messages := tg.messages[chatID]
+	if len(messages) != 2 {
+		t.Fatalf("expected 2 outgoing messages, got %d", len(messages))
+	}
+	if !strings.Contains(messages[1], "<b>💡 Hint</b>") {
+		t.Fatalf("expected hint response, got: %s", messages[1])
+	}
+	if strings.Contains(messages[1], "<b>🧠 Evaluation</b>") {
+		t.Fatalf("hint request should not trigger evaluation flow: %s", messages[1])
 	}
 }
 
@@ -396,7 +482,7 @@ func TestHistoryAndReviseCommands(t *testing.T) {
 	if len(messages) != 4 {
 		t.Fatalf("expected 4 outgoing messages, got %d", len(messages))
 	}
-	if !strings.Contains(messages[2], "*📚 Answered Questions*") || !strings.Contains(messages[2], "Slug: `two\\-sum`") {
+	if !strings.Contains(messages[2], "<b>📚 Answered Questions</b>") || !strings.Contains(messages[2], "Slug: <code>two-sum</code>") {
 		t.Fatalf("history output missing expected slug: %s", messages[2])
 	}
 	if !strings.Contains(messages[3], "Revision question from your history") || !strings.Contains(messages[3], "Two Sum") {

@@ -5,8 +5,9 @@ A Telegram bot that delivers LeetCode practice with daily scheduling, AI-assiste
 ## Core Features
 
 - Random unique LeetCode questions from live LeetCode catalog (`/lc`)
-- Fetches and sends full question statement in Telegram Markdown
+- Fetches and sends full question statement with Telegram HTML rich text
 - AI evaluation for every attempt after `/lc` with heuristic fallback
+- Hint support in active practice mode (`/hint`)
 - Practice controls (`/skip`, `/exit`) for active question mode
 - Completion controls: auto-save on correct evaluation or manual `/done`
 - Revision cleanup command (`/delete <slug>`)
@@ -18,6 +19,7 @@ A Telegram bot that delivers LeetCode practice with daily scheduling, AI-assiste
 ## Commands
 
 - `/lc` get a random question
+- `/hint [context]` ask for a hint on the active question
 - `/done` mark active question complete and save it
 - `/skip` skip active question (does not keep skipped question in seen set)
 - `/exit` leave active `/lc` practice mode
@@ -31,6 +33,7 @@ A Telegram bot that delivers LeetCode practice with daily scheduling, AI-assiste
 - `/help` list commands
 
 After `/lc`, send your approach in plain text and the bot evaluates it (AI-first, heuristic fallback).  
+You can request hints with `/hint` (or by sending "hint" while in active practice mode).
 The question is saved only when evaluation is correct (score >= 8) or when you use `/done`.
 
 ## Local Development

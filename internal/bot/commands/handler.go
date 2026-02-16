@@ -27,6 +27,8 @@ func (h *Handler) Handle(ctx context.Context, chatID int64, text string) error {
 		return h.cmdHelp(ctx, chatID)
 	case "/lc":
 		return h.cmdLC(ctx, chatID)
+	case "/hint":
+		return h.cmdHint(ctx, chatID, args)
 	case "/done":
 		return h.cmdDone(ctx, chatID)
 	case "/skip":

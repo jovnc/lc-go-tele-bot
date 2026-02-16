@@ -177,6 +177,9 @@ func (s *Service) handleFreeTextAnswer(ctx context.Context, chatID int64, answer
 	if settings.CurrentQuestion == nil {
 		return s.tgClient.SendMessage(ctx, chatID, "No active question. Use /lc first.")
 	}
+	if learnerContext, isHint := parseHintRequest(answer); isHint {
+		return s.sendHint(ctx, chatID, *settings.CurrentQuestion, learnerContext)
+	}
 
 	review, aiUsed := s.reviewAnswer(ctx, *settings.CurrentQuestion, answer)
 	source := "Heuristic"
@@ -194,16 +197,16 @@ func (s *Service) handleFreeTextAnswer(ctx context.Context, chatID int64, answer
 	}
 
 	score := clampScore(review.Score)
-	status := "Not saved yet. Improve your approach and send another attempt, or use /done when you finish."
+	status := "Not saved yet. Improve and resubmit, or use /done."
 	if score >= correctAnswerScoreThreshold {
 		if err := s.persistCompletedQuestion(ctx, chatID, *settings.CurrentQuestion); err != nil {
 			return err
 		}
-		status = "Correct. Saved to your seen/revision history."
+		status = "Correct. Saved to history."
 	}
 
-	reply := formatEvaluationMarkdown(*settings.CurrentQuestion, score, source, feedback, guidance, status)
-	if err := s.tgClient.SendMarkdownMessage(ctx, chatID, reply); err != nil {
+	reply := formatEvaluationMessage(*settings.CurrentQuestion, score, source, feedback, guidance, status)
+	if err := s.tgClient.SendRichMessage(ctx, chatID, reply); err != nil {
 		return err
 	}
 
@@ -245,8 +248,8 @@ func (s *Service) sendUniqueQuestion(ctx context.Context, chatID int64, intro st
 		prompt = ""
 	}
 
-	msg := formatQuestionMarkdown(intro, note, q, prompt)
-	return s.tgClient.SendMarkdownMessage(ctx, chatID, msg)
+	msg := formatQuestionMessage(intro, note, q, prompt)
+	return s.tgClient.SendRichMessage(ctx, chatID, msg)
 }
 
 func (s *Service) persistCompletedQuestion(ctx context.Context, chatID int64, q Question) error {
@@ -285,17 +288,17 @@ func (s *Service) reviewAnswer(ctx context.Context, q Question, answer string) (
 
 func fallbackGuidance(q Question, learnerContext string) string {
 	base := strings.Builder{}
-	base.WriteString("1. Restate the problem in your own words and define input/output precisely.\n")
-	base.WriteString("2. Work a small example manually to identify the pattern.\n")
-	base.WriteString("3. Choose a data structure that matches the pattern (hash map, stack, queue, two-pointers, etc.).\n")
-	base.WriteString("4. Write pseudocode first, then verify edge cases (empty, single element, duplicates, boundaries).\n")
-	base.WriteString("5. State time and space complexity before finalizing.")
+	base.WriteString("## Plan\n")
+	base.WriteString("1. Restate input/output and constraints.\n")
+	base.WriteString("2. Pick the core pattern (map, stack, two-pointers, DP, graph).\n")
+	base.WriteString("3. Validate with one normal case and one edge case.\n")
+	base.WriteString("4. State time/space complexity.\n")
 
 	if strings.EqualFold(q.Difficulty, "Hard") {
-		base.WriteString("\n\nFor hard problems, compare at least two approaches and justify why your final one is optimal.")
+		base.WriteString("\n## Hard Focus\n- Compare two strategies and justify why yours is optimal.")
 	}
 	if strings.TrimSpace(learnerContext) != "" {
-		base.WriteString("\n\nBased on your attempt, focus next on narrowing your state representation and loop invariants.")
+		base.WriteString("\n## Focus\n- Tighten your state definition and loop invariant.")
 	}
 	return base.String()
 }

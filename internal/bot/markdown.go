@@ -2,38 +2,18 @@ package bot
 
 import (
 	"fmt"
+	"html"
 	"regexp"
 	"strings"
 	"unicode/utf8"
 )
 
-const maxQuestionPromptRunes = 1700
-const maxFeedbackRunes = 1200
-const maxGuidanceRunes = 1400
+const maxQuestionPromptRunes = 1500
+const maxFeedbackRunes = 650
+const maxGuidanceRunes = 700
+const maxHintRunes = 700
 
-var markdownV2Escaper = strings.NewReplacer(
-	"\\", "\\\\",
-	"_", "\\_",
-	"*", "\\*",
-	"[", "\\[",
-	"]", "\\]",
-	"(", "\\(",
-	")", "\\)",
-	"~", "\\~",
-	"`", "\\`",
-	">", "\\>",
-	"#", "\\#",
-	"+", "\\+",
-	"-", "\\-",
-	"=", "\\=",
-	"|", "\\|",
-	"{", "\\{",
-	"}", "\\}",
-	".", "\\.",
-	"!", "\\!",
-)
-
-func formatQuestionMarkdown(intro, note string, q Question, prompt string) string {
+func formatQuestionMessage(intro, note string, q Question, prompt string) string {
 	intro = strings.TrimSpace(intro)
 	note = strings.TrimSpace(note)
 	prompt = strings.TrimSpace(prompt)
@@ -44,95 +24,107 @@ func formatQuestionMarkdown(intro, note string, q Question, prompt string) strin
 
 	prompt = truncateRunes(prompt, maxQuestionPromptRunes)
 
-	lines := make([]string, 0, 8)
+	lines := make([]string, 0, 10)
 	if intro != "" {
-		lines = append(lines, "*🧩 "+escapeMarkdownV2(intro)+"*")
+		lines = append(lines, "<b>🧩 "+escapeHTML(intro)+"</b>")
 	}
 	if note != "" {
-		lines = append(lines, "_"+escapeMarkdownV2(note)+"_")
+		lines = append(lines, "<i>"+escapeHTML(note)+"</i>")
 	}
 
 	lines = append(lines,
-		fmt.Sprintf("*%s* \\(%s\\)", escapeMarkdownV2(q.Title), escapeMarkdownV2(q.Difficulty)),
+		fmt.Sprintf("<b>%s</b> (%s)", escapeHTML(q.Title), escapeHTML(q.Difficulty)),
+		fmt.Sprintf("Link: <a href=\"%s\">%s</a>", escapeHTML(q.URL), escapeHTML(q.URL)),
 		"",
-		"*Problem Statement*",
+		"<b>Problem</b>",
 		"",
-		renderMarkdownForTelegram(prompt),
+		renderStructuredTextForTelegram(prompt),
 		"",
-		"*Next Step*",
-		"Reply with your approach and I will evaluate it\\. Use /skip for another question or /exit to leave practice mode\\.",
+		"<b>Next</b>",
+		"Reply with your approach. Use /hint for guidance, /skip for another question, or /exit.",
 	)
 
 	return strings.Join(lines, "\n")
 }
 
-func formatEvaluationMarkdown(q Question, score int, source, feedback, guidance, status string) string {
+func formatEvaluationMessage(q Question, score int, source, feedback, guidance, status string) string {
 	feedback = truncateRunes(strings.TrimSpace(feedback), maxFeedbackRunes)
 	guidance = truncateRunes(strings.TrimSpace(guidance), maxGuidanceRunes)
 	status = strings.TrimSpace(status)
 
 	lines := []string{
-		"*🧠 Evaluation*",
-		fmt.Sprintf("*Question:* %s \\(%s\\)", escapeMarkdownV2(q.Title), escapeMarkdownV2(q.Difficulty)),
-		fmt.Sprintf("*Score:* %d/10", score),
-		fmt.Sprintf("*Source:* %s", escapeMarkdownV2(source)),
+		"<b>🧠 Evaluation</b>",
+		fmt.Sprintf("<b>%s</b> (%s)", escapeHTML(q.Title), escapeHTML(q.Difficulty)),
+		fmt.Sprintf("Score: <b>%d/10</b> • Source: %s", score, escapeHTML(source)),
 		"",
-		"*Feedback*",
+		"<b>Feedback</b>",
 		"",
-		renderMarkdownForTelegram(feedback),
+		renderStructuredTextForTelegram(feedback),
 		"",
-		"*Guided Next Steps*",
+		"<b>Next Steps</b>",
 		"",
-		renderMarkdownForTelegram(guidance),
+		renderStructuredTextForTelegram(guidance),
 		"",
-		"*Status*",
+		"<b>Status</b>",
 		"",
-		escapeMarkdownV2(status),
+		escapeHTML(status),
 		"",
-		"Send another attempt, /skip for another question, /exit to leave practice mode, or /lc for a new random question\\.",
+		"Send another attempt, /hint, /skip, /done, /exit, or /lc.",
 	}
 
 	return strings.Join(lines, "\n")
 }
 
-func escapeMarkdownV2(text string) string {
-	return markdownV2Escaper.Replace(text)
+func formatHintMessage(q Question, source, hint string) string {
+	hint = truncateRunes(strings.TrimSpace(hint), maxHintRunes)
+
+	lines := []string{
+		"<b>💡 Hint</b>",
+		fmt.Sprintf("<b>%s</b> (%s)", escapeHTML(q.Title), escapeHTML(q.Difficulty)),
+		fmt.Sprintf("Source: %s", escapeHTML(source)),
+		"",
+		renderStructuredTextForTelegram(hint),
+		"",
+		"Try updating your approach, then send it for evaluation.",
+	}
+
+	return strings.Join(lines, "\n")
 }
 
 var numberedListPattern = regexp.MustCompile(`^(\d+)[\.)]\s+(.*)$`)
+var fencedCodeLangPattern = regexp.MustCompile(`[^a-zA-Z0-9_+\-]`)
 
-func renderMarkdownForTelegram(text string) string {
+func renderStructuredTextForTelegram(text string) string {
 	text = strings.ReplaceAll(strings.TrimSpace(text), "\r\n", "\n")
 	if text == "" {
 		return ""
 	}
 
 	lines := strings.Split(text, "\n")
-	out := make([]string, 0, len(lines))
+	out := make([]string, 0, len(lines)+4)
 	inCodeBlock := false
+	codeLang := ""
+	codeBlock := make([]string, 0, 16)
 
 	for _, line := range lines {
 		trimmed := strings.TrimSpace(line)
 
 		if strings.HasPrefix(trimmed, "```") {
 			if inCodeBlock {
-				out = append(out, "```")
+				out = append(out, renderCodeBlock(codeLang, codeBlock))
 				inCodeBlock = false
+				codeLang = ""
+				codeBlock = codeBlock[:0]
 				continue
 			}
 
-			lang := strings.TrimSpace(strings.TrimPrefix(trimmed, "```"))
-			if lang != "" {
-				out = append(out, "```"+escapeMarkdownV2(lang))
-			} else {
-				out = append(out, "```")
-			}
+			codeLang = sanitizeCodeLanguage(strings.TrimSpace(strings.TrimPrefix(trimmed, "```")))
 			inCodeBlock = true
 			continue
 		}
 
 		if inCodeBlock {
-			out = append(out, escapeCodeBlockLine(line))
+			codeBlock = append(codeBlock, line)
 			continue
 		}
 
@@ -147,20 +139,20 @@ func renderMarkdownForTelegram(text string) string {
 		}
 
 		if strings.HasPrefix(trimmed, "- ") || strings.HasPrefix(trimmed, "* ") {
-			out = append(out, "• "+escapeMarkdownV2(strings.TrimSpace(trimmed[2:])))
+			out = append(out, "• "+escapeHTML(strings.TrimSpace(trimmed[2:])))
 			continue
 		}
 
 		if matched := numberedListPattern.FindStringSubmatch(trimmed); len(matched) == 3 {
-			out = append(out, fmt.Sprintf("%s\\. %s", matched[1], escapeMarkdownV2(strings.TrimSpace(matched[2]))))
+			out = append(out, fmt.Sprintf("%s. %s", matched[1], escapeHTML(strings.TrimSpace(matched[2]))))
 			continue
 		}
 
-		out = append(out, escapeMarkdownV2(line))
+		out = append(out, escapeHTML(line))
 	}
 
 	if inCodeBlock {
-		out = append(out, "```")
+		out = append(out, renderCodeBlock(codeLang, codeBlock))
 	}
 
 	return strings.Join(out, "\n")
@@ -176,15 +168,30 @@ func formatHeadingLine(line string) (string, bool) {
 			if label == "" {
 				return "", false
 			}
-			return "*" + strings.Repeat("▸ ", i-1) + escapeMarkdownV2(label) + "*", true
+			return "<b>" + strings.Repeat("▸ ", i-1) + escapeHTML(label) + "</b>", true
 		}
 	}
 	return "", false
 }
 
-func escapeCodeBlockLine(line string) string {
-	line = strings.ReplaceAll(line, "\\", "\\\\")
-	return strings.ReplaceAll(line, "`", "\\`")
+func renderCodeBlock(lang string, codeLines []string) string {
+	code := escapeHTML(strings.Join(codeLines, "\n"))
+	if lang == "" {
+		return "<pre>" + code + "</pre>"
+	}
+	return fmt.Sprintf("<pre><code class=\"language-%s\">%s</code></pre>", escapeHTML(lang), code)
+}
+
+func sanitizeCodeLanguage(lang string) string {
+	lang = strings.TrimSpace(lang)
+	if lang == "" {
+		return ""
+	}
+	return strings.Trim(fencedCodeLangPattern.ReplaceAllString(lang, ""), "-_+")
+}
+
+func escapeHTML(text string) string {
+	return html.EscapeString(text)
 }
 
 func truncateRunes(in string, max int) string {
