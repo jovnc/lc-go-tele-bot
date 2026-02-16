@@ -274,10 +274,10 @@ func TestWebhookLCUniquenessAndGrading(t *testing.T) {
 	if !strings.Contains(messages[1], "Merge Intervals") {
 		t.Fatalf("second question should be Merge Intervals, got: %s", messages[1])
 	}
-	if !strings.Contains(messages[2], "Score:") {
+	if !strings.Contains(messages[2], "*Score:*") {
 		t.Fatalf("grading response missing score: %s", messages[2])
 	}
-	if !strings.Contains(messages[2], "Source: Heuristic") {
+	if !strings.Contains(messages[2], "*Source:* Heuristic") {
 		t.Fatalf("expected heuristic fallback, got: %s", messages[2])
 	}
 	if !strings.Contains(messages[2], "Not saved yet") {
@@ -340,7 +340,7 @@ func TestGradingUsesCoachWhenConfigured(t *testing.T) {
 	if len(messages) != 2 {
 		t.Fatalf("expected 2 outgoing messages, got %d", len(messages))
 	}
-	if !strings.Contains(messages[1], "Source: AI") {
+	if !strings.Contains(messages[1], "*Source:* AI") {
 		t.Fatalf("grading should come from AI coach, got: %s", messages[1])
 	}
 	if !strings.Contains(messages[1], "invariant") {
@@ -396,7 +396,7 @@ func TestHistoryAndReviseCommands(t *testing.T) {
 	if len(messages) != 4 {
 		t.Fatalf("expected 4 outgoing messages, got %d", len(messages))
 	}
-	if !strings.Contains(messages[2], "Answered questions") || !strings.Contains(messages[2], "slug: two-sum") {
+	if !strings.Contains(messages[2], "*📚 Answered Questions*") || !strings.Contains(messages[2], "Slug: `two\\-sum`") {
 		t.Fatalf("history output missing expected slug: %s", messages[2])
 	}
 	if !strings.Contains(messages[3], "Revision question from your history") || !strings.Contains(messages[3], "Two Sum") {

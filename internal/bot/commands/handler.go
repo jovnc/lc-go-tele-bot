@@ -33,9 +33,9 @@ func (h *Handler) Handle(ctx context.Context, chatID int64, text string) error {
 		return h.cmdSkip(ctx, chatID)
 	case "/exit":
 		return h.cmdExit(ctx, chatID)
-	case "/delete", "/unrevise":
+	case "/delete":
 		return h.cmdDeleteRevisedQuestion(ctx, chatID, args)
-	case "/answered", "/history":
+	case "/answered":
 		return h.cmdAnsweredHistory(ctx, chatID, args)
 	case "/revise":
 		return h.cmdRevise(ctx, chatID, args)

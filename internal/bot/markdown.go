@@ -2,6 +2,7 @@ package bot
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 	"unicode/utf8"
 )
@@ -45,10 +46,10 @@ func formatQuestionMarkdown(intro, note string, q Question, prompt string) strin
 
 	lines := make([]string, 0, 8)
 	if intro != "" {
-		lines = append(lines, "*"+escapeMarkdownV2(intro)+"*")
+		lines = append(lines, "*🧩 "+escapeMarkdownV2(intro)+"*")
 	}
 	if note != "" {
-		lines = append(lines, escapeMarkdownV2(note))
+		lines = append(lines, "_"+escapeMarkdownV2(note)+"_")
 	}
 
 	lines = append(lines,
@@ -56,8 +57,9 @@ func formatQuestionMarkdown(intro, note string, q Question, prompt string) strin
 		"",
 		"*Problem Statement*",
 		"",
-		escapeMarkdownV2(prompt),
+		renderMarkdownForTelegram(prompt),
 		"",
+		"*Next Step*",
 		"Reply with your approach and I will evaluate it\\. Use /skip for another question or /exit to leave practice mode\\.",
 	)
 
@@ -70,17 +72,18 @@ func formatEvaluationMarkdown(q Question, score int, source, feedback, guidance,
 	status = strings.TrimSpace(status)
 
 	lines := []string{
-		fmt.Sprintf("*Evaluation for %s* \\(%s\\)", escapeMarkdownV2(q.Title), escapeMarkdownV2(q.Difficulty)),
-		fmt.Sprintf("Score: %d/10", score),
-		fmt.Sprintf("Source: %s", escapeMarkdownV2(source)),
+		"*🧠 Evaluation*",
+		fmt.Sprintf("*Question:* %s \\(%s\\)", escapeMarkdownV2(q.Title), escapeMarkdownV2(q.Difficulty)),
+		fmt.Sprintf("*Score:* %d/10", score),
+		fmt.Sprintf("*Source:* %s", escapeMarkdownV2(source)),
 		"",
 		"*Feedback*",
 		"",
-		escapeMarkdownV2(feedback),
+		renderMarkdownForTelegram(feedback),
 		"",
 		"*Guided Next Steps*",
 		"",
-		escapeMarkdownV2(guidance),
+		renderMarkdownForTelegram(guidance),
 		"",
 		"*Status*",
 		"",
@@ -94,6 +97,94 @@ func formatEvaluationMarkdown(q Question, score int, source, feedback, guidance,
 
 func escapeMarkdownV2(text string) string {
 	return markdownV2Escaper.Replace(text)
+}
+
+var numberedListPattern = regexp.MustCompile(`^(\d+)[\.)]\s+(.*)$`)
+
+func renderMarkdownForTelegram(text string) string {
+	text = strings.ReplaceAll(strings.TrimSpace(text), "\r\n", "\n")
+	if text == "" {
+		return ""
+	}
+
+	lines := strings.Split(text, "\n")
+	out := make([]string, 0, len(lines))
+	inCodeBlock := false
+
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+
+		if strings.HasPrefix(trimmed, "```") {
+			if inCodeBlock {
+				out = append(out, "```")
+				inCodeBlock = false
+				continue
+			}
+
+			lang := strings.TrimSpace(strings.TrimPrefix(trimmed, "```"))
+			if lang != "" {
+				out = append(out, "```"+escapeMarkdownV2(lang))
+			} else {
+				out = append(out, "```")
+			}
+			inCodeBlock = true
+			continue
+		}
+
+		if inCodeBlock {
+			out = append(out, escapeCodeBlockLine(line))
+			continue
+		}
+
+		if trimmed == "" {
+			out = append(out, "")
+			continue
+		}
+
+		if heading, ok := formatHeadingLine(trimmed); ok {
+			out = append(out, heading)
+			continue
+		}
+
+		if strings.HasPrefix(trimmed, "- ") || strings.HasPrefix(trimmed, "* ") {
+			out = append(out, "• "+escapeMarkdownV2(strings.TrimSpace(trimmed[2:])))
+			continue
+		}
+
+		if matched := numberedListPattern.FindStringSubmatch(trimmed); len(matched) == 3 {
+			out = append(out, fmt.Sprintf("%s\\. %s", matched[1], escapeMarkdownV2(strings.TrimSpace(matched[2]))))
+			continue
+		}
+
+		out = append(out, escapeMarkdownV2(line))
+	}
+
+	if inCodeBlock {
+		out = append(out, "```")
+	}
+
+	return strings.Join(out, "\n")
+}
+
+func formatHeadingLine(line string) (string, bool) {
+	for i := 0; i < len(line); i++ {
+		if line[i] != '#' {
+			if i == 0 || i > 3 || line[i] != ' ' {
+				return "", false
+			}
+			label := strings.TrimSpace(line[i+1:])
+			if label == "" {
+				return "", false
+			}
+			return "*" + strings.Repeat("▸ ", i-1) + escapeMarkdownV2(label) + "*", true
+		}
+	}
+	return "", false
+}
+
+func escapeCodeBlockLine(line string) string {
+	line = strings.ReplaceAll(line, "\\", "\\\\")
+	return strings.ReplaceAll(line, "`", "\\`")
 }
 
 func truncateRunes(in string, max int) string {

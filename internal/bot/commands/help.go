@@ -14,7 +14,6 @@ func helpText() string {
 /exit - Exit active /lc practice mode
 /delete <slug> - Remove a question from revised history and seen set
 /answered [limit] - List previously answered questions
-/history [limit] - Alias of /answered
 /revise [slug] - Revisit an answered question (random if slug omitted)
 /daily_on [HH:MM] - Enable daily question in SGT (default 20:00)
 /daily_off - Disable daily question

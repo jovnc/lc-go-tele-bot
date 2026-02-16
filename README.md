@@ -11,7 +11,7 @@ A Telegram bot that delivers LeetCode practice with daily scheduling, AI-assiste
 - Completion controls: auto-save on correct evaluation or manual `/done`
 - Revision cleanup command (`/delete <slug>`)
 - Daily question scheduling in SGT (`/daily_on`, `/daily_time`, `/daily_off`, `/daily_status`)
-- Answer history and revision workflow (`/answered`, `/history`, `/revise`)
+- Answer history and revision workflow (`/answered`, `/revise`)
 - Username allow-list gating via env (`ALLOWED_TELEGRAM_USERNAMES`)
 - Cloud Run webhook deployment with Firestore state and Terraform IaC
 
@@ -23,7 +23,6 @@ A Telegram bot that delivers LeetCode practice with daily scheduling, AI-assiste
 - `/exit` leave active `/lc` practice mode
 - `/delete <slug>` remove a question from revised history
 - `/answered [limit]` list answered questions
-- `/history [limit]` alias of `/answered`
 - `/revise [slug]` revisit an answered question
 - `/daily_on [HH:MM]` enable daily question
 - `/daily_off` disable daily question
