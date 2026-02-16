@@ -40,18 +40,23 @@ func parsePositiveLimit(raw string, max int) (int, error) {
 
 func normalizeSlug(raw string) string {
 	v := strings.TrimSpace(strings.ToLower(raw))
-	v = strings.Trim(v, "/")
+	v = strings.Trim(v, " `/\\\"'<>[](){}.,;:|")
 	if v == "" {
 		return ""
 	}
 
+	if strings.HasPrefix(v, "slug:") {
+		v = strings.TrimSpace(strings.TrimPrefix(v, "slug:"))
+	}
+	v = strings.Trim(v, " `/\\\"'<>[](){}.,;:|")
+
 	if idx := strings.Index(v, "leetcode.com/problems/"); idx >= 0 {
 		v = v[idx+len("leetcode.com/problems/"):]
 	}
-	if idx := strings.IndexAny(v, "/?#"); idx >= 0 {
+	if idx := strings.IndexAny(v, "/?#| "); idx >= 0 {
 		v = v[:idx]
 	}
-	return strings.Trim(v, "/")
+	return strings.Trim(v, " `/\\\"'<>[](){}.,;:|")
 }
 
 func tzLabel(tz string) string {
