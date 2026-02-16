@@ -5,7 +5,7 @@ A Telegram bot that delivers LeetCode practice with daily scheduling, AI-assiste
 ## Core Features
 
 - Random unique LeetCode questions from live LeetCode catalog (`/lc`)
-- Fetches and sends full question statement with Telegram HTML rich text
+- Fetches and sends full question statement with Telegram MarkdownV2 rich text
 - AI evaluation for every attempt after `/lc` with heuristic fallback
 - Hint support in active practice mode (`/hint`)
 - Practice controls (`/skip`, `/exit`) for active question mode

@@ -295,7 +295,7 @@ func TestWebhookLCUniquenessAndGrading(t *testing.T) {
 	if !strings.Contains(messages[1], "Merge Intervals") {
 		t.Fatalf("second question should be Merge Intervals, got: %s", messages[1])
 	}
-	if !strings.Contains(messages[2], "Score: <b>") {
+	if !strings.Contains(messages[2], "Score: *") {
 		t.Fatalf("grading response missing score: %s", messages[2])
 	}
 	if !strings.Contains(messages[2], "Source: Heuristic") {
@@ -367,7 +367,7 @@ func TestGradingUsesCoachWhenConfigured(t *testing.T) {
 	if !strings.Contains(messages[1], "invariant") {
 		t.Fatalf("AI guidance missing from grade response: %s", messages[1])
 	}
-	if !strings.Contains(messages[1], "Correct. Saved") {
+	if !strings.Contains(messages[1], "Correct\\. Saved") {
 		t.Fatalf("expected correct status in evaluation output, got: %s", messages[1])
 	}
 
@@ -415,14 +415,17 @@ func TestLCUsesAIQuestionFormattingWhenAvailable(t *testing.T) {
 	if len(messages) != 1 {
 		t.Fatalf("expected 1 outgoing message, got %d", len(messages))
 	}
-	if !strings.Contains(messages[0], "<b>▸ Given</b>") {
+	if !strings.Contains(messages[0], "__*Given*__") {
 		t.Fatalf("expected AI heading formatting in /lc output: %s", messages[0])
 	}
-	if !strings.Contains(messages[0], "• Asteroids move at same speed.") {
+	if !strings.Contains(messages[0], "• Asteroids move at same speed") {
 		t.Fatalf("expected AI bullet formatting in /lc output: %s", messages[0])
 	}
-	if !strings.Contains(messages[0], "<pre><code class=\"language-text\">") {
+	if !strings.Contains(messages[0], "```text") {
 		t.Fatalf("expected AI code block formatting in /lc output: %s", messages[0])
+	}
+	if strings.Contains(messages[0], "Link: ") {
+		t.Fatalf("expected no explicit link line in /lc output: %s", messages[0])
 	}
 }
 
@@ -458,7 +461,7 @@ func TestHintCommandUsesAIWhenAvailable(t *testing.T) {
 	if len(messages) != 2 {
 		t.Fatalf("expected 2 outgoing messages, got %d", len(messages))
 	}
-	if !strings.Contains(messages[1], "<b>💡 Hint</b>") {
+	if !strings.Contains(messages[1], "*💡 Hint*") {
 		t.Fatalf("expected hint response, got: %s", messages[1])
 	}
 	if !strings.Contains(messages[1], "Source: AI") {
@@ -495,10 +498,10 @@ func TestHintRequestFromFreeTextUsesHintFlow(t *testing.T) {
 	if len(messages) != 2 {
 		t.Fatalf("expected 2 outgoing messages, got %d", len(messages))
 	}
-	if !strings.Contains(messages[1], "<b>💡 Hint</b>") {
+	if !strings.Contains(messages[1], "*💡 Hint*") {
 		t.Fatalf("expected hint response, got: %s", messages[1])
 	}
-	if strings.Contains(messages[1], "<b>🧠 Evaluation</b>") {
+	if strings.Contains(messages[1], "*🧠 Evaluation*") {
 		t.Fatalf("hint request should not trigger evaluation flow: %s", messages[1])
 	}
 }
@@ -535,10 +538,10 @@ func TestHistoryAndReviseCommands(t *testing.T) {
 	if len(messages) != 4 {
 		t.Fatalf("expected 4 outgoing messages, got %d", len(messages))
 	}
-	if !strings.Contains(messages[2], "<b>📚 Answered Questions</b>") || !strings.Contains(messages[2], "Slug: <code>two-sum</code>") {
+	if !strings.Contains(messages[2], "*📚 Answered Questions*") || !strings.Contains(messages[2], "Slug: `two-sum`") {
 		t.Fatalf("history output missing expected slug: %s", messages[2])
 	}
-	if !strings.Contains(messages[3], "Revision question from your history") || !strings.Contains(messages[3], "Two Sum") {
+	if !strings.Contains(messages[3], "Two Sum") || !strings.Contains(messages[3], "__*Problem*__") {
 		t.Fatalf("revise output unexpected: %s", messages[3])
 	}
 }
@@ -822,7 +825,7 @@ func TestCronDailyDispatchRespectsTimeAndDedupesByDay(t *testing.T) {
 	if len(messages) != 1 {
 		t.Fatalf("expected one daily message due to same-day dedupe, got %d", len(messages))
 	}
-	if !strings.Contains(messages[0], "Daily LeetCode challenge") {
+	if !strings.Contains(messages[0], "Valid Parentheses") {
 		t.Fatalf("unexpected daily message: %s", messages[0])
 	}
 }

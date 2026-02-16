@@ -40,7 +40,7 @@ func (c *Client) SendRichMessage(ctx context.Context, chatID int64, text string)
 	payload := map[string]any{
 		"chat_id":                  chatID,
 		"text":                     text,
-		"parse_mode":               "HTML",
+		"parse_mode":               "MarkdownV2",
 		"disable_web_page_preview": true,
 	}
 	return c.postJSON(ctx, "/sendMessage", payload)

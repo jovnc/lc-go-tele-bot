@@ -113,7 +113,7 @@ func (c *OpenAICoach) FormatQuestion(ctx context.Context, question bot.Question,
 
 	system := "You format LeetCode problem statements for Telegram chat. Preserve facts exactly and do not invent details."
 	user := fmt.Sprintf(
-		"Question: %s (%s)\nLink: %s\n\nRaw statement:\n%s\n\nReturn valid JSON only with key: formatted_prompt (string).\nFormatting rules:\n- plain text only; no HTML.\n- use concise section headings starting with ## when helpful.\n- use '-' bullet points for lists.\n- format each example in a fenced code block using ```text.\n- preserve variable names, numbers, and logic exactly.\n- do not add constraints/examples that are not present.\n- keep it concise and scannable for chat.",
+		"Question: %s (%s)\nLink: %s\n\nRaw statement:\n%s\n\nReturn valid JSON only with key: formatted_prompt (string).\nFormatting rules:\n- plain text only; do not include raw markup tags.\n- use concise section headings starting with ## when helpful.\n- use '-' bullet points for lists.\n- format each example in a fenced code block using ```text.\n- preserve variable names, numbers, and logic exactly.\n- do not add constraints/examples that are not present.\n- keep it concise and scannable for chat.",
 		question.Title,
 		question.Difficulty,
 		question.URL,
