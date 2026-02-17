@@ -23,6 +23,7 @@ func formatQuestionMessage(intro, note string, q Question, prompt string) string
 
 	prompt = truncateRunes(prompt, maxQuestionPromptRunes)
 	prompt = stripQuestionLinkLines(prompt, q.URL)
+	prompt = stripDuplicatedQuestionHeader(prompt, q)
 
 	titleLine := fmt.Sprintf("*%s* \\(%s\\)", escapeMarkdownV2(q.Title), escapeMarkdownV2(q.Difficulty))
 	if strings.TrimSpace(q.URL) != "" {
@@ -46,6 +47,52 @@ func formatQuestionMessage(intro, note string, q Question, prompt string) string
 	)
 
 	return strings.Join(lines, "\n")
+}
+
+func stripDuplicatedQuestionHeader(prompt string, q Question) string {
+	lines := strings.Split(strings.TrimSpace(prompt), "\n")
+	for len(lines) > 0 {
+		line := strings.TrimSpace(lines[0])
+		if line == "" {
+			lines = lines[1:]
+			continue
+		}
+
+		if isQuestionTitleLine(line, q) || strings.EqualFold(line, "problem") {
+			lines = lines[1:]
+			continue
+		}
+
+		break
+	}
+
+	return strings.TrimSpace(strings.Join(lines, "\n"))
+}
+
+func isQuestionTitleLine(line string, q Question) bool {
+	title := strings.TrimSpace(q.Title)
+	difficulty := strings.TrimSpace(q.Difficulty)
+	if title == "" {
+		return false
+	}
+
+	if strings.EqualFold(line, title) {
+		return true
+	}
+
+	if difficulty == "" {
+		return false
+	}
+
+	if strings.EqualFold(line, fmt.Sprintf("%s (%s)", title, difficulty)) {
+		return true
+	}
+
+	if strings.EqualFold(line, fmt.Sprintf("%s (%s)", title, strings.ToLower(difficulty))) {
+		return true
+	}
+
+	return false
 }
 
 func formatEvaluationMessage(q Question, score int, source, feedback, guidance, status string) string {

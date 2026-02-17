@@ -64,3 +64,22 @@ func TestRenderStructuredTextForTelegramHeadingsListsAndCodeBlocks(t *testing.T)
 		}
 	}
 }
+
+func TestFormatQuestionMessageStripsDuplicatedQuestionHeader(t *testing.T) {
+	msg := formatQuestionMessage(
+		"Here is your random LeetCode question:",
+		"",
+		Question{Title: "Form Array by Concatenating Subarrays of Another Array", Difficulty: "Medium", URL: "https://leetcode.com/problems/form-array-by-concatenating-subarrays-of-another-array/"},
+		"Form Array by Concatenating Subarrays of Another Array (Medium)\n\nProblem\n\nForm Array by Concatenating Subarrays of Another Array (Medium)\n\nProblem\nYou are given groups and nums.",
+	)
+
+	if strings.Count(msg, "Form Array by Concatenating Subarrays of Another Array") != 1 {
+		t.Fatalf("expected duplicated header/title to be removed: %s", msg)
+	}
+	if strings.Contains(msg, "__*Problem*__\n\nProblem") {
+		t.Fatalf("expected duplicated problem label to be removed: %s", msg)
+	}
+	if !strings.Contains(msg, "You are given groups and nums\\.") {
+		t.Fatalf("expected actual statement body to remain: %s", msg)
+	}
+}
