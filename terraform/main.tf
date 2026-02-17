@@ -222,6 +222,11 @@ resource "google_cloud_run_v2_service" "bot" {
       }
 
       env {
+        name  = "DAILY_SCHEDULING_ENABLED"
+        value = var.daily_scheduling_enabled ? "true" : "false"
+      }
+
+      env {
         name  = "AUTO_SET_WEBHOOK"
         value = var.auto_set_webhook ? "true" : "false"
       }

@@ -276,6 +276,7 @@ func TestWebhookLCUniquenessAndGrading(t *testing.T) {
 		"20:00",
 		"Asia/Singapore",
 		nil,
+		true,
 	)
 
 	chatID := int64(42)
@@ -350,6 +351,7 @@ func TestGradingUsesCoachWhenConfigured(t *testing.T) {
 		"20:00",
 		"Asia/Singapore",
 		nil,
+		true,
 	)
 
 	chatID := int64(77)
@@ -406,6 +408,7 @@ func TestLCUsesAIQuestionFormattingWhenAvailable(t *testing.T) {
 		"20:00",
 		"Asia/Singapore",
 		nil,
+		true,
 	)
 
 	chatID := int64(178)
@@ -450,6 +453,7 @@ func TestHintCommandUsesAIWhenAvailable(t *testing.T) {
 		"20:00",
 		"Asia/Singapore",
 		nil,
+		true,
 	)
 
 	chatID := int64(78)
@@ -487,6 +491,7 @@ func TestHintRequestFromFreeTextUsesHintFlow(t *testing.T) {
 		"20:00",
 		"Asia/Singapore",
 		nil,
+		true,
 	)
 
 	chatID := int64(79)
@@ -525,6 +530,7 @@ func TestHistoryAndReviseCommands(t *testing.T) {
 		"20:00",
 		"Asia/Singapore",
 		nil,
+		true,
 	)
 
 	chatID := int64(88)
@@ -565,6 +571,7 @@ func TestSkipDoesNotPersistSeenQuestion(t *testing.T) {
 		"20:00",
 		"Asia/Singapore",
 		nil,
+		true,
 	)
 
 	chatID := int64(120)
@@ -611,6 +618,7 @@ func TestExitClearsActivePracticeMode(t *testing.T) {
 		"20:00",
 		"Asia/Singapore",
 		nil,
+		true,
 	)
 
 	chatID := int64(121)
@@ -665,6 +673,7 @@ func TestDoneSavesQuestionAndClearsCurrent(t *testing.T) {
 		"20:00",
 		"Asia/Singapore",
 		nil,
+		true,
 	)
 
 	chatID := int64(123)
@@ -703,6 +712,7 @@ func TestDeleteRemovesQuestionFromRevisedAndSeen(t *testing.T) {
 		"20:00",
 		"Asia/Singapore",
 		nil,
+		true,
 	)
 
 	chatID := int64(124)
@@ -748,6 +758,7 @@ func TestDailyOnKeepsExistingTimezone(t *testing.T) {
 		"20:00",
 		"Asia/Singapore",
 		nil,
+		true,
 	)
 
 	chatID := int64(125)
@@ -795,6 +806,7 @@ func TestUsernameAllowListBlocksUnauthorizedUsers(t *testing.T) {
 		"20:00",
 		"Asia/Singapore",
 		[]string{"allowed_user"},
+		true,
 	)
 
 	chatID := int64(122)
@@ -843,6 +855,7 @@ func TestCronDailyDispatchRespectsTimeAndDedupesByDay(t *testing.T) {
 		"20:00",
 		"Asia/Singapore",
 		nil,
+		true,
 	)
 	// 2026-02-14 12:00 UTC == 20:00 SGT
 	svc.nowFn = func() time.Time { return time.Date(2026, 2, 14, 12, 0, 0, 0, time.UTC) }
@@ -875,6 +888,85 @@ func TestCronDailyDispatchRespectsTimeAndDedupesByDay(t *testing.T) {
 	}
 }
 
+func TestDailyCommandsReportOffWhenFeatureDisabled(t *testing.T) {
+	tg := newFakeTelegramClient()
+	store := newMemoryStore()
+	provider := &fakeQuestionProvider{}
+
+	svc := NewService(
+		log.New(bytes.NewBuffer(nil), "", 0),
+		tg,
+		provider,
+		nil,
+		store,
+		"webhook-secret",
+		"cron-secret",
+		"20:00",
+		"Asia/Singapore",
+		nil,
+		false,
+	)
+
+	chatID := int64(130)
+	commands := []string{"/daily_on", "/daily_off", "/daily_time 21:30", "/daily_status"}
+	for _, cmd := range commands {
+		callWebhook(t, svc, "/webhook/webhook-secret", webhookPayload{Message: webhookMessage{Chat: webhookChat{ID: chatID}, Text: cmd}})
+	}
+
+	messages := tg.messages[chatID]
+	if len(messages) != len(commands) {
+		t.Fatalf("expected %d outgoing messages, got %d", len(commands), len(messages))
+	}
+	for i, msg := range messages {
+		if msg != "Daily scheduling is OFF." {
+			t.Fatalf("unexpected response for %q: %s", commands[i], msg)
+		}
+	}
+}
+
+func TestCronDailyDispatchReturnsOffWhenFeatureDisabled(t *testing.T) {
+	tg := newFakeTelegramClient()
+	store := newMemoryStore()
+	provider := &fakeQuestionProvider{questions: []Question{
+		{Slug: "valid-parentheses", Title: "Valid Parentheses", Difficulty: "Easy", URL: "https://leetcode.com/problems/valid-parentheses/"},
+	}}
+
+	svc := NewService(
+		log.New(bytes.NewBuffer(nil), "", 0),
+		tg,
+		provider,
+		nil,
+		store,
+		"webhook-secret",
+		"cron-secret",
+		"20:00",
+		"Asia/Singapore",
+		nil,
+		false,
+	)
+	svc.nowFn = func() time.Time { return time.Date(2026, 2, 14, 12, 0, 0, 0, time.UTC) }
+
+	chatID := int64(131)
+	if err := store.UpsertDailySettings(context.Background(), chatID, true, "20:00", "Asia/Singapore"); err != nil {
+		t.Fatalf("failed to configure chat: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/cron/daily", nil)
+	req.Header.Set("X-Cron-Secret", "cron-secret")
+	res := httptest.NewRecorder()
+	svc.CronHandler(res, req)
+
+	if res.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", res.Code)
+	}
+	if got := strings.TrimSpace(res.Body.String()); got != "daily scheduling is off" {
+		t.Fatalf("unexpected cron response body: %q", got)
+	}
+	if len(tg.messages[chatID]) != 0 {
+		t.Fatalf("expected no daily message when feature is off")
+	}
+}
+
 func TestCronRejectsInvalidSecret(t *testing.T) {
 	svc := NewService(
 		log.New(bytes.NewBuffer(nil), "", 0),
@@ -887,6 +979,7 @@ func TestCronRejectsInvalidSecret(t *testing.T) {
 		"20:00",
 		"Asia/Singapore",
 		nil,
+		false,
 	)
 
 	req := httptest.NewRequest(http.MethodPost, "/cron/daily", nil)
@@ -952,6 +1045,7 @@ func TestLCPromptsForTopicThenServesMatchingQuestion(t *testing.T) {
 		"20:00",
 		"Asia/Singapore",
 		nil,
+		true,
 	)
 
 	chatID := int64(155)

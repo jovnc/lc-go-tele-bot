@@ -36,6 +36,8 @@ After `/lc`, send your approach in plain text and the bot evaluates it (AI-first
 You can request hints with `/hint` (or by sending "hint" while in active practice mode).
 The question is saved only when evaluation is correct (score >= 8) or when you use `/done`.
 
+Daily scheduling can be globally toggled with `DAILY_SCHEDULING_ENABLED` (currently default `false`).
+
 ## Local Development
 
 1. Configure environment.

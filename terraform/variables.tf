@@ -87,6 +87,12 @@ variable "daily_timezone" {
   default     = "Asia/Singapore"
 }
 
+variable "daily_scheduling_enabled" {
+  description = "Enable daily scheduling commands and cron dispatch globally"
+  type        = bool
+  default     = false
+}
+
 variable "auto_set_webhook" {
   description = "Whether app should call Telegram setWebhook on startup"
   type        = bool

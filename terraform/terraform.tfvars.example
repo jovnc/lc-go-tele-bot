@@ -20,6 +20,7 @@ openai_api_key_secret_id     = "openai-api-key"
 
 default_daily_time = "20:00"
 daily_timezone     = "Asia/Singapore"
+daily_scheduling_enabled = false
 ai_enabled         = true
 openai_model       = "gpt-4o-mini"
 ai_timeout_sec     = 25

@@ -16,11 +16,12 @@ type Config struct {
 	FirestoreProject string
 	AllowedUsernames []string
 
-	DefaultDailyTime string
-	DefaultTimezone  string
-	AutoSetWebhook   bool
-	BotBaseURL       string
-	QuestionCacheSec int
+	DefaultDailyTime       string
+	DefaultTimezone        string
+	DailySchedulingEnabled bool
+	AutoSetWebhook         bool
+	BotBaseURL             string
+	QuestionCacheSec       int
 
 	AIEnabled    bool
 	OpenAIAPIKey string
@@ -42,27 +43,32 @@ func Load() (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
+	dailySchedulingEnabled, err := parseBoolEnv("DAILY_SCHEDULING_ENABLED", false)
+	if err != nil {
+		return Config{}, err
+	}
 	aiTimeoutSec, err := parseIntEnv("AI_TIMEOUT_SEC", 25)
 	if err != nil {
 		return Config{}, err
 	}
 
 	cfg := Config{
-		Port:             getEnv("PORT", "8080"),
-		TelegramBotToken: os.Getenv("TELEGRAM_BOT_TOKEN"),
-		WebhookSecret:    os.Getenv("WEBHOOK_SECRET"),
-		CronSecret:       os.Getenv("CRON_SECRET"),
-		FirestoreProject: os.Getenv("FIRESTORE_PROJECT_ID"),
-		AllowedUsernames: parseAllowedUsernamesEnv("ALLOWED_TELEGRAM_USERNAMES"),
-		DefaultDailyTime: getEnv("DAILY_DEFAULT_TIME", "20:00"),
-		DefaultTimezone:  getEnv("DAILY_TIMEZONE", "Asia/Singapore"),
-		AutoSetWebhook:   autoSetWebhook,
-		BotBaseURL:       getEnv("BOT_BASE_URL", ""),
-		QuestionCacheSec: cacheSec,
-		AIEnabled:        aiEnabled,
-		OpenAIAPIKey:     strings.TrimSpace(os.Getenv("OPENAI_API_KEY")),
-		OpenAIModel:      getEnv("OPENAI_MODEL", "gpt-4o-mini"),
-		AITimeoutSec:     aiTimeoutSec,
+		Port:                   getEnv("PORT", "8080"),
+		TelegramBotToken:       os.Getenv("TELEGRAM_BOT_TOKEN"),
+		WebhookSecret:          os.Getenv("WEBHOOK_SECRET"),
+		CronSecret:             os.Getenv("CRON_SECRET"),
+		FirestoreProject:       os.Getenv("FIRESTORE_PROJECT_ID"),
+		AllowedUsernames:       parseAllowedUsernamesEnv("ALLOWED_TELEGRAM_USERNAMES"),
+		DefaultDailyTime:       getEnv("DAILY_DEFAULT_TIME", "20:00"),
+		DefaultTimezone:        getEnv("DAILY_TIMEZONE", "Asia/Singapore"),
+		DailySchedulingEnabled: dailySchedulingEnabled,
+		AutoSetWebhook:         autoSetWebhook,
+		BotBaseURL:             getEnv("BOT_BASE_URL", ""),
+		QuestionCacheSec:       cacheSec,
+		AIEnabled:              aiEnabled,
+		OpenAIAPIKey:           strings.TrimSpace(os.Getenv("OPENAI_API_KEY")),
+		OpenAIModel:            getEnv("OPENAI_MODEL", "gpt-4o-mini"),
+		AITimeoutSec:           aiTimeoutSec,
 	}
 
 	if cfg.TelegramBotToken == "" {

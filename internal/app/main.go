@@ -76,6 +76,7 @@ func run(logger *log.Logger) error {
 		cfg.DefaultDailyTime,
 		cfg.DefaultTimezone,
 		cfg.AllowedUsernames,
+		cfg.DailySchedulingEnabled,
 	)
 
 	if cfg.AutoSetWebhook {

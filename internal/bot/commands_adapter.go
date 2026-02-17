@@ -113,6 +113,10 @@ func (d *commandDeps) DefaultTZ() string {
 	return d.service.defaultTZ
 }
 
+func (d *commandDeps) DailySchedulingEnabled() bool {
+	return d.service.dailySchedulingEnabled
+}
+
 func (d *commandDeps) Logf(format string, args ...any) {
 	d.service.logger.Printf(format, args...)
 }

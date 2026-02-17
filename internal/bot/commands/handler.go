@@ -9,6 +9,8 @@ type Handler struct {
 	deps Dependencies
 }
 
+const dailySchedulingOffMessage = "Daily scheduling is OFF."
+
 func NewHandler(deps Dependencies) *Handler {
 	return &Handler{deps: deps}
 }
@@ -22,6 +24,9 @@ func (h *Handler) Handle(ctx context.Context, chatID int64, text string) error {
 	cmd := normalizeCommand(parts[0])
 	args := parts[1:]
 	h.deps.SetPendingTopicSelection(chatID, false)
+	if isDailyCommand(cmd) && !h.deps.DailySchedulingEnabled() {
+		return h.deps.SendMessage(ctx, chatID, dailySchedulingOffMessage)
+	}
 
 	switch cmd {
 	case "/start", "/help":
@@ -52,5 +57,14 @@ func (h *Handler) Handle(ctx context.Context, chatID int64, text string) error {
 		return h.cmdDailyStatus(ctx, chatID)
 	default:
 		return h.deps.SendMessage(ctx, chatID, "Unknown command. Use /help to see available commands.")
+	}
+}
+
+func isDailyCommand(cmd string) bool {
+	switch cmd {
+	case "/daily_on", "/daily_off", "/daily_time", "/daily_status":
+		return true
+	default:
+		return false
 	}
 }

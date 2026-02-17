@@ -19,21 +19,22 @@ import (
 const correctAnswerScoreThreshold = 8
 
 type Service struct {
-	logger         *log.Logger
-	tgClient       TelegramSender
-	questions      QuestionProvider
-	coach          Coach
-	store          StateStore
-	commandHandler *commands.Handler
-	allowedUsers   map[string]struct{}
-	webhookSecret  string
-	cronSecret     string
-	defaultDailyHH string
-	defaultTZ      string
-	defaultLoc     *time.Location
-	nowFn          func() time.Time
-	pendingTopicMu sync.RWMutex
-	pendingTopic   map[int64]bool
+	logger                 *log.Logger
+	tgClient               TelegramSender
+	questions              QuestionProvider
+	coach                  Coach
+	store                  StateStore
+	commandHandler         *commands.Handler
+	allowedUsers           map[string]struct{}
+	webhookSecret          string
+	cronSecret             string
+	defaultDailyHH         string
+	defaultTZ              string
+	dailySchedulingEnabled bool
+	defaultLoc             *time.Location
+	nowFn                  func() time.Time
+	pendingTopicMu         sync.RWMutex
+	pendingTopic           map[int64]bool
 }
 
 func NewService(
@@ -47,6 +48,7 @@ func NewService(
 	defaultDailyHH string,
 	defaultTZ string,
 	allowedUsernames []string,
+	dailySchedulingEnabled bool,
 ) *Service {
 	loc, err := time.LoadLocation(defaultTZ)
 	if err != nil {
@@ -54,19 +56,20 @@ func NewService(
 	}
 
 	svc := &Service{
-		logger:         logger,
-		tgClient:       tgClient,
-		questions:      questions,
-		coach:          coach,
-		store:          store,
-		allowedUsers:   buildAllowedUserSet(allowedUsernames),
-		webhookSecret:  webhookSecret,
-		cronSecret:     cronSecret,
-		defaultDailyHH: defaultDailyHH,
-		defaultTZ:      defaultTZ,
-		defaultLoc:     loc,
-		nowFn:          time.Now,
-		pendingTopic:   make(map[int64]bool),
+		logger:                 logger,
+		tgClient:               tgClient,
+		questions:              questions,
+		coach:                  coach,
+		store:                  store,
+		allowedUsers:           buildAllowedUserSet(allowedUsernames),
+		webhookSecret:          webhookSecret,
+		cronSecret:             cronSecret,
+		defaultDailyHH:         defaultDailyHH,
+		defaultTZ:              defaultTZ,
+		dailySchedulingEnabled: dailySchedulingEnabled,
+		defaultLoc:             loc,
+		nowFn:                  time.Now,
+		pendingTopic:           make(map[int64]bool),
 	}
 	svc.commandHandler = newCommandHandler(svc)
 	return svc
@@ -106,6 +109,11 @@ func (s *Service) CronHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	if r.Header.Get("X-Cron-Secret") != s.cronSecret {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+	if !s.dailySchedulingEnabled {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("daily scheduling is off"))
 		return
 	}
 

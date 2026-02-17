@@ -51,6 +51,7 @@ type Dependencies interface {
 	Now() time.Time
 	DefaultDailyHH() string
 	DefaultTZ() string
+	DailySchedulingEnabled() bool
 	Logf(format string, args ...any)
 	IsAnsweredQuestionNotFound(err error) bool
 	FormatQuestionMessage(ctx context.Context, intro, note string, q Question, prompt string) string
