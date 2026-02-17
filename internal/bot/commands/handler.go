@@ -21,12 +21,12 @@ func (h *Handler) Handle(ctx context.Context, chatID int64, text string) error {
 
 	cmd := normalizeCommand(parts[0])
 	args := parts[1:]
+	h.deps.SetPendingTopicSelection(chatID, false)
 
 	switch cmd {
 	case "/start", "/help":
 		return h.cmdHelp(ctx, chatID)
 	case "/lc":
-		h.deps.SetPendingTopicSelection(chatID, false)
 		return h.cmdLC(ctx, chatID, args)
 	case "/hint":
 		return h.cmdHint(ctx, chatID, args)
