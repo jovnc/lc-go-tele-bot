@@ -732,6 +732,51 @@ func TestDeleteRemovesQuestionFromRevisedAndSeen(t *testing.T) {
 	}
 }
 
+func TestDailyOnKeepsExistingTimezone(t *testing.T) {
+	tg := newFakeTelegramClient()
+	store := newMemoryStore()
+	provider := &fakeQuestionProvider{}
+
+	svc := NewService(
+		log.New(bytes.NewBuffer(nil), "", 0),
+		tg,
+		provider,
+		nil,
+		store,
+		"webhook-secret",
+		"cron-secret",
+		"20:00",
+		"Asia/Singapore",
+		nil,
+	)
+
+	chatID := int64(125)
+	if err := store.UpsertDailySettings(context.Background(), chatID, false, "21:15", "America/New_York"); err != nil {
+		t.Fatalf("failed to configure chat settings: %v", err)
+	}
+
+	callWebhook(t, svc, "/webhook/webhook-secret", webhookPayload{Message: webhookMessage{Chat: webhookChat{ID: chatID}, Text: "/daily_on"}})
+
+	settings, _ := store.GetChatSettings(context.Background(), chatID)
+	if settings.Timezone != "America/New_York" {
+		t.Fatalf("expected /daily_on to preserve existing timezone, got %q", settings.Timezone)
+	}
+	if !settings.DailyEnabled {
+		t.Fatalf("expected /daily_on to enable daily notifications")
+	}
+	if settings.DailyTime != "21:15" {
+		t.Fatalf("expected /daily_on to keep configured daily time, got %q", settings.DailyTime)
+	}
+
+	messages := tg.messages[chatID]
+	if len(messages) != 1 {
+		t.Fatalf("expected 1 outgoing message, got %d", len(messages))
+	}
+	if !strings.Contains(messages[0], "America/New_York") {
+		t.Fatalf("expected /daily_on confirmation to mention preserved timezone, got: %s", messages[0])
+	}
+}
+
 func TestUsernameAllowListBlocksUnauthorizedUsers(t *testing.T) {
 	tg := newFakeTelegramClient()
 	store := newMemoryStore()

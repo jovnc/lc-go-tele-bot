@@ -15,6 +15,10 @@ func (h *Handler) cmdDailyOn(ctx context.Context, chatID int64, args []string) e
 	if hhmm == "" {
 		hhmm = h.deps.DefaultDailyHH()
 	}
+	tz := settings.Timezone
+	if tz == "" {
+		tz = h.deps.DefaultTZ()
+	}
 	if len(args) > 0 {
 		hhmm, err = normalizeHHMM(args[0])
 		if err != nil {
@@ -22,9 +26,9 @@ func (h *Handler) cmdDailyOn(ctx context.Context, chatID int64, args []string) e
 		}
 	}
 
-	if err := h.deps.UpsertDailySettings(ctx, chatID, true, hhmm, h.deps.DefaultTZ()); err != nil {
+	if err := h.deps.UpsertDailySettings(ctx, chatID, true, hhmm, tz); err != nil {
 		return err
 	}
 
-	return h.deps.SendMessage(ctx, chatID, fmt.Sprintf("Daily question is ON at %s %s. Use /daily_off to stop.", hhmm, tzLabel(h.deps.DefaultTZ())))
+	return h.deps.SendMessage(ctx, chatID, fmt.Sprintf("Daily question is ON at %s %s. Use /daily_off to stop.", hhmm, tzLabel(tz)))
 }
