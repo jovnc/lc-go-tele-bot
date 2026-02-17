@@ -43,8 +43,10 @@ type Dependencies interface {
 
 	QuestionPrompt(ctx context.Context, slug string) (string, error)
 	SendUniqueQuestion(ctx context.Context, chatID int64, intro string, transientExclude ...string) error
+	SendUniqueQuestionByTopic(ctx context.Context, chatID int64, intro, topic string, transientExclude ...string) error
 	PersistCompletedQuestion(ctx context.Context, chatID int64, q Question) error
 	SendHint(ctx context.Context, chatID int64, learnerContext string) error
+	SetPendingTopicSelection(chatID int64, pending bool)
 
 	Now() time.Time
 	DefaultDailyHH() string

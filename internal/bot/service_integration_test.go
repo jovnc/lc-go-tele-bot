@@ -280,8 +280,8 @@ func TestWebhookLCUniquenessAndGrading(t *testing.T) {
 
 	chatID := int64(42)
 
-	callWebhook(t, svc, "/webhook/webhook-secret", webhookPayload{Message: webhookMessage{Chat: webhookChat{ID: chatID}, Text: "/lc"}})
-	callWebhook(t, svc, "/webhook/webhook-secret", webhookPayload{Message: webhookMessage{Chat: webhookChat{ID: chatID}, Text: "/lc"}})
+	callWebhook(t, svc, "/webhook/webhook-secret", webhookPayload{Message: webhookMessage{Chat: webhookChat{ID: chatID}, Text: "/lc random"}})
+	callWebhook(t, svc, "/webhook/webhook-secret", webhookPayload{Message: webhookMessage{Chat: webhookChat{ID: chatID}, Text: "/lc random"}})
 	callWebhook(t, svc, "/webhook/webhook-secret", webhookPayload{Message: webhookMessage{Chat: webhookChat{ID: chatID}, Text: "Use a hash map, O(n) time, O(n) space. Handle duplicates and empty list."}})
 
 	messages := tg.messages[chatID]
@@ -354,7 +354,7 @@ func TestGradingUsesCoachWhenConfigured(t *testing.T) {
 
 	chatID := int64(77)
 
-	callWebhook(t, svc, "/webhook/webhook-secret", webhookPayload{Message: webhookMessage{Chat: webhookChat{ID: chatID}, Text: "/lc"}})
+	callWebhook(t, svc, "/webhook/webhook-secret", webhookPayload{Message: webhookMessage{Chat: webhookChat{ID: chatID}, Text: "/lc random"}})
 	callWebhook(t, svc, "/webhook/webhook-secret", webhookPayload{Message: webhookMessage{Chat: webhookChat{ID: chatID}, Text: "I would use nested loops then optimize"}})
 
 	messages := tg.messages[chatID]
@@ -409,7 +409,7 @@ func TestLCUsesAIQuestionFormattingWhenAvailable(t *testing.T) {
 	)
 
 	chatID := int64(178)
-	callWebhook(t, svc, "/webhook/webhook-secret", webhookPayload{Message: webhookMessage{Chat: webhookChat{ID: chatID}, Text: "/lc"}})
+	callWebhook(t, svc, "/webhook/webhook-secret", webhookPayload{Message: webhookMessage{Chat: webhookChat{ID: chatID}, Text: "/lc random"}})
 
 	messages := tg.messages[chatID]
 	if len(messages) != 1 {
@@ -454,7 +454,7 @@ func TestHintCommandUsesAIWhenAvailable(t *testing.T) {
 
 	chatID := int64(78)
 
-	callWebhook(t, svc, "/webhook/webhook-secret", webhookPayload{Message: webhookMessage{Chat: webhookChat{ID: chatID}, Text: "/lc"}})
+	callWebhook(t, svc, "/webhook/webhook-secret", webhookPayload{Message: webhookMessage{Chat: webhookChat{ID: chatID}, Text: "/lc random"}})
 	callWebhook(t, svc, "/webhook/webhook-secret", webhookPayload{Message: webhookMessage{Chat: webhookChat{ID: chatID}, Text: "/hint"}})
 
 	messages := tg.messages[chatID]
@@ -491,7 +491,7 @@ func TestHintRequestFromFreeTextUsesHintFlow(t *testing.T) {
 
 	chatID := int64(79)
 
-	callWebhook(t, svc, "/webhook/webhook-secret", webhookPayload{Message: webhookMessage{Chat: webhookChat{ID: chatID}, Text: "/lc"}})
+	callWebhook(t, svc, "/webhook/webhook-secret", webhookPayload{Message: webhookMessage{Chat: webhookChat{ID: chatID}, Text: "/lc random"}})
 	callWebhook(t, svc, "/webhook/webhook-secret", webhookPayload{Message: webhookMessage{Chat: webhookChat{ID: chatID}, Text: "hint please"}})
 
 	messages := tg.messages[chatID]
@@ -529,7 +529,7 @@ func TestHistoryAndReviseCommands(t *testing.T) {
 
 	chatID := int64(88)
 
-	callWebhook(t, svc, "/webhook/webhook-secret", webhookPayload{Message: webhookMessage{Chat: webhookChat{ID: chatID}, Text: "/lc"}})
+	callWebhook(t, svc, "/webhook/webhook-secret", webhookPayload{Message: webhookMessage{Chat: webhookChat{ID: chatID}, Text: "/lc random"}})
 	callWebhook(t, svc, "/webhook/webhook-secret", webhookPayload{Message: webhookMessage{Chat: webhookChat{ID: chatID}, Text: "/done"}})
 	callWebhook(t, svc, "/webhook/webhook-secret", webhookPayload{Message: webhookMessage{Chat: webhookChat{ID: chatID}, Text: "/answered"}})
 	callWebhook(t, svc, "/webhook/webhook-secret", webhookPayload{Message: webhookMessage{Chat: webhookChat{ID: chatID}, Text: "/revise two-sum"}})
@@ -568,7 +568,7 @@ func TestSkipDoesNotPersistSeenQuestion(t *testing.T) {
 	)
 
 	chatID := int64(120)
-	callWebhook(t, svc, "/webhook/webhook-secret", webhookPayload{Message: webhookMessage{Chat: webhookChat{ID: chatID}, Text: "/lc"}})
+	callWebhook(t, svc, "/webhook/webhook-secret", webhookPayload{Message: webhookMessage{Chat: webhookChat{ID: chatID}, Text: "/lc random"}})
 	callWebhook(t, svc, "/webhook/webhook-secret", webhookPayload{Message: webhookMessage{Chat: webhookChat{ID: chatID}, Text: "/skip"}})
 
 	seenAfterSkip, err := store.SeenQuestionSet(context.Background(), chatID)
@@ -579,7 +579,7 @@ func TestSkipDoesNotPersistSeenQuestion(t *testing.T) {
 		t.Fatalf("expected skipped question flow to keep seen set empty until /done or correct answer")
 	}
 
-	callWebhook(t, svc, "/webhook/webhook-secret", webhookPayload{Message: webhookMessage{Chat: webhookChat{ID: chatID}, Text: "/lc"}})
+	callWebhook(t, svc, "/webhook/webhook-secret", webhookPayload{Message: webhookMessage{Chat: webhookChat{ID: chatID}, Text: "/lc random"}})
 
 	messages := tg.messages[chatID]
 	if len(messages) != 3 {
@@ -614,7 +614,7 @@ func TestExitClearsActivePracticeMode(t *testing.T) {
 	)
 
 	chatID := int64(121)
-	callWebhook(t, svc, "/webhook/webhook-secret", webhookPayload{Message: webhookMessage{Chat: webhookChat{ID: chatID}, Text: "/lc"}})
+	callWebhook(t, svc, "/webhook/webhook-secret", webhookPayload{Message: webhookMessage{Chat: webhookChat{ID: chatID}, Text: "/lc random"}})
 	callWebhook(t, svc, "/webhook/webhook-secret", webhookPayload{Message: webhookMessage{Chat: webhookChat{ID: chatID}, Text: "/exit"}})
 	callWebhook(t, svc, "/webhook/webhook-secret", webhookPayload{Message: webhookMessage{Chat: webhookChat{ID: chatID}, Text: "my approach"}})
 
@@ -668,7 +668,7 @@ func TestDoneSavesQuestionAndClearsCurrent(t *testing.T) {
 	)
 
 	chatID := int64(123)
-	callWebhook(t, svc, "/webhook/webhook-secret", webhookPayload{Message: webhookMessage{Chat: webhookChat{ID: chatID}, Text: "/lc"}})
+	callWebhook(t, svc, "/webhook/webhook-secret", webhookPayload{Message: webhookMessage{Chat: webhookChat{ID: chatID}, Text: "/lc random"}})
 	callWebhook(t, svc, "/webhook/webhook-secret", webhookPayload{Message: webhookMessage{Chat: webhookChat{ID: chatID}, Text: "/done"}})
 
 	settings, _ := store.GetChatSettings(context.Background(), chatID)
@@ -706,7 +706,7 @@ func TestDeleteRemovesQuestionFromRevisedAndSeen(t *testing.T) {
 	)
 
 	chatID := int64(124)
-	callWebhook(t, svc, "/webhook/webhook-secret", webhookPayload{Message: webhookMessage{Chat: webhookChat{ID: chatID}, Text: "/lc"}})
+	callWebhook(t, svc, "/webhook/webhook-secret", webhookPayload{Message: webhookMessage{Chat: webhookChat{ID: chatID}, Text: "/lc random"}})
 	callWebhook(t, svc, "/webhook/webhook-secret", webhookPayload{Message: webhookMessage{Chat: webhookChat{ID: chatID}, Text: "/done"}})
 	callWebhook(t, svc, "/webhook/webhook-secret", webhookPayload{Message: webhookMessage{Chat: webhookChat{ID: chatID}, Text: "/delete two-sum"}})
 	callWebhook(t, svc, "/webhook/webhook-secret", webhookPayload{Message: webhookMessage{Chat: webhookChat{ID: chatID}, Text: "/answered"}})
@@ -757,14 +757,14 @@ func TestUsernameAllowListBlocksUnauthorizedUsers(t *testing.T) {
 		Message: webhookMessage{
 			Chat: webhookChat{ID: chatID},
 			From: webhookUser{Username: "intruder"},
-			Text: "/lc",
+			Text: "/lc random",
 		},
 	})
 	callWebhook(t, svc, "/webhook/webhook-secret", webhookPayload{
 		Message: webhookMessage{
 			Chat: webhookChat{ID: chatID},
 			From: webhookUser{Username: "allowed_user"},
-			Text: "/lc",
+			Text: "/lc random",
 		},
 	})
 
@@ -885,5 +885,42 @@ func callWebhook(t *testing.T, svc *Service, path string, payload webhookPayload
 	svc.WebhookHandler(res, req)
 	if res.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d", res.Code)
+	}
+}
+
+func TestLCPromptsForTopicThenServesMatchingQuestion(t *testing.T) {
+	tg := newFakeTelegramClient()
+	store := newMemoryStore()
+	provider := &fakeQuestionProvider{questions: []Question{
+		{Slug: "binary-tree-level-order-traversal", Title: "Binary Tree Level Order Traversal", Difficulty: "Medium", URL: "https://leetcode.com/problems/binary-tree-level-order-traversal/"},
+		{Slug: "two-sum", Title: "Two Sum", Difficulty: "Easy", URL: "https://leetcode.com/problems/two-sum/"},
+	}}
+
+	svc := NewService(
+		log.New(bytes.NewBuffer(nil), "", 0),
+		tg,
+		provider,
+		nil,
+		store,
+		"webhook-secret",
+		"cron-secret",
+		"20:00",
+		"Asia/Singapore",
+		nil,
+	)
+
+	chatID := int64(155)
+	callWebhook(t, svc, "/webhook/webhook-secret", webhookPayload{Message: webhookMessage{Chat: webhookChat{ID: chatID}, Text: "/lc"}})
+	callWebhook(t, svc, "/webhook/webhook-secret", webhookPayload{Message: webhookMessage{Chat: webhookChat{ID: chatID}, Text: "tree"}})
+
+	messages := tg.messages[chatID]
+	if len(messages) != 2 {
+		t.Fatalf("expected 2 outgoing messages, got %d", len(messages))
+	}
+	if !strings.Contains(messages[0], "Which topic") {
+		t.Fatalf("expected topic prompt, got: %s", messages[0])
+	}
+	if !strings.Contains(messages[1], "Binary Tree Level Order Traversal") {
+		t.Fatalf("expected topic-matching question, got: %s", messages[1])
 	}
 }

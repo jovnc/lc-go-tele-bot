@@ -6,8 +6,10 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"math/rand"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"telegram-leetcode-bot/internal/bot/commands"
@@ -30,6 +32,8 @@ type Service struct {
 	defaultTZ      string
 	defaultLoc     *time.Location
 	nowFn          func() time.Time
+	pendingTopicMu sync.RWMutex
+	pendingTopic   map[int64]bool
 }
 
 func NewService(
@@ -62,6 +66,7 @@ func NewService(
 		defaultTZ:      defaultTZ,
 		defaultLoc:     loc,
 		nowFn:          time.Now,
+		pendingTopic:   make(map[int64]bool),
 	}
 	svc.commandHandler = newCommandHandler(svc)
 	return svc
@@ -166,6 +171,11 @@ func (s *Service) handleMessage(ctx context.Context, msg telegram.Message) error
 		return s.handleCommand(ctx, msg.Chat.ID, text)
 	}
 
+	if s.isPendingTopicSelection(msg.Chat.ID) {
+		s.setPendingTopicSelection(msg.Chat.ID, false)
+		return s.sendUniqueQuestionByTopic(ctx, msg.Chat.ID, "Here is your random LeetCode question:", text)
+	}
+
 	return s.handleFreeTextAnswer(ctx, msg.Chat.ID, text)
 }
 
@@ -251,6 +261,75 @@ func (s *Service) sendUniqueQuestion(ctx context.Context, chatID int64, intro st
 
 	msg := formatQuestionMessage(intro, note, q, prompt)
 	return s.tgClient.SendRichMessage(ctx, chatID, msg)
+}
+
+func (s *Service) sendUniqueQuestionByTopic(ctx context.Context, chatID int64, intro, topic string, transientExclude ...string) error {
+	topic = strings.TrimSpace(strings.ToLower(topic))
+	if topic == "random" {
+		topic = ""
+	}
+
+	if topic == "" {
+		return s.sendUniqueQuestion(ctx, chatID, intro, transientExclude...)
+	}
+
+	all, err := s.questions.AllQuestions(ctx)
+	if err != nil {
+		return err
+	}
+
+	seen, err := s.store.SeenQuestionSet(ctx, chatID)
+	if err != nil {
+		return err
+	}
+	excludeSet := toSlugSet(transientExclude)
+	effectiveSeen := mergeSlugSets(seen, excludeSet)
+
+	candidates := make([]Question, 0)
+	for _, q := range all {
+		if _, exists := effectiveSeen[q.Slug]; exists {
+			continue
+		}
+		haystack := strings.ToLower(q.Title + " " + q.Slug + " " + q.Difficulty)
+		if strings.Contains(haystack, topic) {
+			candidates = append(candidates, q)
+		}
+	}
+
+	if len(candidates) == 0 {
+		return s.tgClient.SendMessage(ctx, chatID, "No unseen questions found for that topic. Try another topic or send /lc random.")
+	}
+
+	q := candidates[rand.Intn(len(candidates))]
+	if err := s.store.SetCurrentQuestion(ctx, chatID, q); err != nil {
+		return err
+	}
+
+	prompt, err := s.questions.QuestionPrompt(ctx, q.Slug)
+	if err != nil {
+		s.logger.Printf("question prompt lookup failed for slug=%s: %v", q.Slug, err)
+		prompt = ""
+	}
+	prompt = s.formatQuestionPrompt(ctx, q, prompt)
+
+	msg := formatQuestionMessage(intro, "", q, prompt)
+	return s.tgClient.SendRichMessage(ctx, chatID, msg)
+}
+
+func (s *Service) setPendingTopicSelection(chatID int64, pending bool) {
+	s.pendingTopicMu.Lock()
+	defer s.pendingTopicMu.Unlock()
+	if pending {
+		s.pendingTopic[chatID] = true
+		return
+	}
+	delete(s.pendingTopic, chatID)
+}
+
+func (s *Service) isPendingTopicSelection(chatID int64) bool {
+	s.pendingTopicMu.RLock()
+	defer s.pendingTopicMu.RUnlock()
+	return s.pendingTopic[chatID]
 }
 
 func (s *Service) formatQuestionPrompt(ctx context.Context, q Question, prompt string) string {

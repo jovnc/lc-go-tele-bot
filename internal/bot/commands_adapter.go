@@ -85,12 +85,20 @@ func (d *commandDeps) SendUniqueQuestion(ctx context.Context, chatID int64, intr
 	return d.service.sendUniqueQuestion(ctx, chatID, intro, transientExclude...)
 }
 
+func (d *commandDeps) SendUniqueQuestionByTopic(ctx context.Context, chatID int64, intro, topic string, transientExclude ...string) error {
+	return d.service.sendUniqueQuestionByTopic(ctx, chatID, intro, topic, transientExclude...)
+}
+
 func (d *commandDeps) PersistCompletedQuestion(ctx context.Context, chatID int64, q commands.Question) error {
 	return d.service.persistCompletedQuestion(ctx, chatID, fromCommandQuestion(q))
 }
 
 func (d *commandDeps) SendHint(ctx context.Context, chatID int64, learnerContext string) error {
 	return d.service.sendHintForChat(ctx, chatID, learnerContext)
+}
+
+func (d *commandDeps) SetPendingTopicSelection(chatID int64, pending bool) {
+	d.service.setPendingTopicSelection(chatID, pending)
 }
 
 func (d *commandDeps) Now() time.Time {
