@@ -171,6 +171,12 @@ variable "scheduler_timezone" {
   default     = "Asia/Singapore"
 }
 
+variable "cloud_scheduler_enabled" {
+  description = "Enable Cloud Scheduler job that calls /cron/daily"
+  type        = bool
+  default     = false
+}
+
 variable "create_firestore_database" {
   description = "Create default Firestore database. Set false if already provisioned."
   type        = bool

@@ -15,8 +15,8 @@ output "artifact_registry_repository" {
 }
 
 output "cloud_scheduler_job" {
-  description = "Cloud Scheduler job name"
-  value       = google_cloud_scheduler_job.daily_tick.name
+  description = "Cloud Scheduler job name (null when cloud_scheduler_enabled is false)"
+  value       = try(google_cloud_scheduler_job.daily_tick[0].name, null)
 }
 
 output "secret_manager_secret_ids" {

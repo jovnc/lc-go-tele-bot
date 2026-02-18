@@ -1,11 +1,13 @@
 locals {
-  required_apis = [
-    "artifactregistry.googleapis.com",
-    "cloudscheduler.googleapis.com",
-    "firestore.googleapis.com",
-    "run.googleapis.com",
-    "secretmanager.googleapis.com",
-  ]
+  required_apis = concat(
+    [
+      "artifactregistry.googleapis.com",
+      "firestore.googleapis.com",
+      "run.googleapis.com",
+      "secretmanager.googleapis.com",
+    ],
+    var.cloud_scheduler_enabled ? ["cloudscheduler.googleapis.com"] : [],
+  )
 
   # Service account IDs must be <= 30 chars and follow [a-z][a-z0-9-]+.
   service_account_id = substr("bot-${replace(lower(var.service_name), "/[^a-z0-9-]/", "-")}", 0, 30)
@@ -309,6 +311,7 @@ data "google_cloud_run_v2_service" "bot_live" {
 }
 
 resource "google_cloud_scheduler_job" "daily_tick" {
+  count       = var.cloud_scheduler_enabled ? 1 : 0
   name        = "${var.service_name}-daily-tick"
   region      = var.region
   schedule    = var.scheduler_cron

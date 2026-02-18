@@ -16,8 +16,9 @@ IMAGE ?= $(IMAGE_REPO):$(TAG)
 TF_DIR ?= terraform
 TF_PLAN ?= tfplan
 TFVARS_FILE ?= $(TF_DIR)/terraform.tfvars
+TF_AUTO_APPROVE ?= false
 
-.PHONY: help build dev test deploy-docker deploy tf-init tf-plan tf-set-image cloud-deploy terraform-apply
+.PHONY: help build dev test deploy-docker deploy tf-init tf-plan tf-set-image cloud-deploy terraform-apply tf-destroy cloud-teardown
 
 help:
 	@echo "Common targets:"
@@ -26,6 +27,7 @@ help:
 	@echo "  make test                          Run all Go tests"
 	@echo "  make deploy-docker PROJECT_ID=...  Build and push Docker image to Artifact Registry"
 	@echo "  make cloud-deploy PROJECT_ID=...   Push image and apply Terraform in $(TF_DIR)"
+	@echo "  make cloud-teardown                Destroy Terraform-managed cloud resources"
 
 build:
 	@mkdir -p "$(BUILD_DIR)"
@@ -75,3 +77,14 @@ cloud-deploy: deploy-docker tf-set-image tf-plan
 	terraform -chdir="$(TF_DIR)" apply "$(TF_PLAN)"
 
 terraform-apply: cloud-deploy
+
+tf-destroy: tf-init
+	@if [ "$(TF_AUTO_APPROVE)" = "true" ]; then \
+		terraform -chdir="$(TF_DIR)" destroy -auto-approve; \
+	else \
+		terraform -chdir="$(TF_DIR)" destroy; \
+	fi
+
+cloud-teardown: tf-destroy
+	@rm -f "$(TF_PLAN)"
+	@echo "Teardown complete for Terraform-managed cloud resources."

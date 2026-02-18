@@ -38,6 +38,7 @@ memory_limit       = "512Mi"
 # Cloud Scheduler calls every minute, app checks per chat HH:MM.
 scheduler_cron     = "* * * * *"
 scheduler_timezone = "Asia/Singapore"
+cloud_scheduler_enabled = false
 
 # Set false if Firestore default DB already exists in project.
 create_firestore_database = true
